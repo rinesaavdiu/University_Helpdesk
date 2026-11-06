@@ -1,0 +1,44 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# Test results
+TestResults/
+*.trx
+coverage*.xml
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local secret configuration
+appsettings.*.local.json
+appsettings.Local.json
+secrets.json
+*.secrets.json
+
+# Private keys and certificates
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa
+id_ed25519
+
+# Generated submission archives
+*.zip
+*.7z
+*.rar
+submission/
