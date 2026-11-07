@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UniversityHelpdesk.Api.Persistence;
 
@@ -26,16 +23,11 @@ public class DatabaseConfigurationTests : IClassFixture<DatabaseConfigurationTes
         Assert.Contains("ConnectionStrings__HelpdeskDatabase", exception.Message);
     }
 
-    public class MissingConnectionStringFactory : WebApplicationFactory<Program>
+    public class MissingConnectionStringFactory : HelpdeskApiFactory
     {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        protected override IDictionary<string, string?> ExtraSettings => new Dictionary<string, string?>
         {
-            builder.UseEnvironment("Development");
-            builder.ConfigureAppConfiguration(configuration =>
-                configuration.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:HelpdeskDatabase"] = "",
-                }));
-        }
+            ["ConnectionStrings:HelpdeskDatabase"] = "",
+        };
     }
 }

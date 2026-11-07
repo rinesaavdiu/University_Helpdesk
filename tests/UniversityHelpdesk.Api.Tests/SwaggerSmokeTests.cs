@@ -1,15 +1,13 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace UniversityHelpdesk.Api.Tests;
 
-public class SwaggerSmokeTests : IClassFixture<SwaggerSmokeTests.DevelopmentApiFactory>
+public class SwaggerSmokeTests : IClassFixture<HelpdeskApiFactory>
 {
     private readonly HttpClient _client;
 
-    public SwaggerSmokeTests(DevelopmentApiFactory factory)
+    public SwaggerSmokeTests(HelpdeskApiFactory factory)
     {
         _client = factory.CreateClient();
     }
@@ -33,13 +31,5 @@ public class SwaggerSmokeTests : IClassFixture<SwaggerSmokeTests.DevelopmentApiF
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
-    }
-
-    public class DevelopmentApiFactory : WebApplicationFactory<Program>
-    {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            builder.UseEnvironment("Development");
-        }
     }
 }

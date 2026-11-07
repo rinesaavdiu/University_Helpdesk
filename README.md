@@ -45,11 +45,38 @@ the repository root.
    dotnet ef database update --project backend/UniversityHelpdesk.Api
    ```
 
-5. Start the API:
+5. Store the JWT signing key and the demo account passwords in .NET user
+   secrets. They are saved in your Windows profile, not in the repository. The
+   signing key must be at least 32 bytes; the API refuses to start without it.
+   Choose your own values:
+
+   ```powershell
+   $project = "backend/UniversityHelpdesk.Api"
+   dotnet user-secrets set "Jwt:SigningKey" "<at least 32 random characters>" --project $project
+   dotnet user-secrets set "DemoAccounts:Student1Password" "<password>" --project $project
+   dotnet user-secrets set "DemoAccounts:Student2Password" "<password>" --project $project
+   dotnet user-secrets set "DemoAccounts:Technician1Password" "<password>" --project $project
+   ```
+
+   Run `dotnet user-secrets list --project $project` to see the values later.
+
+6. Create the demo accounts `student1@uni.test`, `student2@uni.test`
+   (students), and `technician1@uni.test` (technician). The command only runs
+   in Development. Existing accounts are left unchanged, so it is safe to run
+   again:
+
+   ```powershell
+   dotnet run --project backend/UniversityHelpdesk.Api --launch-profile http -- seed-demo-users
+   ```
+
+7. Start the API:
 
    ```powershell
    dotnet run --project backend/UniversityHelpdesk.Api --launch-profile http
    ```
+
+   Open `http://localhost:5276/swagger`, call `POST /auth/login` with a demo
+   account, then select **Authorize** and paste the returned `accessToken`.
 
 To stop PostgreSQL and keep its data, run `docker compose stop postgres`.
 
