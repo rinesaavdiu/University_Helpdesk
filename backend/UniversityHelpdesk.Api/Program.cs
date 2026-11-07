@@ -1,11 +1,12 @@
 using Microsoft.OpenApi;
 using UniversityHelpdesk.Api.Authentication;
+using UniversityHelpdesk.Api.ErrorHandling;
 using UniversityHelpdesk.Api.Persistence;
 using UniversityHelpdesk.Api.Persistence.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddHelpdeskControllers();
 builder.Services.AddHelpdeskPersistence();
 builder.Services.AddHelpdeskAuthentication();
 builder.Services.AddScoped<DemoAccountSeeder>();
@@ -44,6 +45,10 @@ if (args.Contains(DemoAccountSeeder.CommandName))
     var seeded = await scope.ServiceProvider.GetRequiredService<DemoAccountSeeder>().SeedAsync();
     return seeded ? 0 : 1;
 }
+
+// Registered in every environment so Development also returns the sanitized 500.
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {

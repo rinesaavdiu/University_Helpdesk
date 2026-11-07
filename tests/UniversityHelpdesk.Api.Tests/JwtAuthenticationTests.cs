@@ -5,9 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -17,12 +15,12 @@ using UniversityHelpdesk.Api.Domain;
 
 namespace UniversityHelpdesk.Api.Tests;
 
-public class JwtAuthenticationTests : IClassFixture<JwtAuthenticationTests.AuthTestFactory>
+public class JwtAuthenticationTests : IClassFixture<TestRoutesApiFactory>
 {
-    private readonly AuthTestFactory _factory;
+    private readonly TestRoutesApiFactory _factory;
     private readonly HttpClient _client;
 
-    public JwtAuthenticationTests(AuthTestFactory factory)
+    public JwtAuthenticationTests(TestRoutesApiFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -211,16 +209,6 @@ public class JwtAuthenticationTests : IClassFixture<JwtAuthenticationTests.AuthT
     }
 
     public record TestIdentity(string? UserId, string? Role);
-
-    public class AuthTestFactory : HelpdeskApiFactory
-    {
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            base.ConfigureWebHost(builder);
-            builder.ConfigureTestServices(services =>
-                services.AddControllers().AddApplicationPart(typeof(TestAuthController).Assembly));
-        }
-    }
 
     public class MissingSigningKeyFactory : HelpdeskApiFactory
     {
