@@ -90,6 +90,19 @@ public static partial class ProblemDetailsSetup
             return unknownFields.ToDictionary(name => name, _ => new[] { "This field is not allowed." });
         }
 
+        // Well-formed JSON with a value of the wrong type, such as "categoryId": "three".
+        var wrongTypeFields = bodyErrors
+            .Where(entry => entry.Key.StartsWith("$.")
+                && entry.Value!.Errors.Any(error => error.ErrorMessage.StartsWith("The JSON value could not be converted")))
+            .Select(entry => entry.Key[2..])
+            .Distinct()
+            .ToList();
+
+        if (wrongTypeFields.Count > 0)
+        {
+            return wrongTypeFields.ToDictionary(name => name, _ => new[] { "The value has the wrong type." });
+        }
+
         return new Dictionary<string, string[]> { ["body"] = ["The request body must be valid JSON."] };
     }
 

@@ -3,6 +3,7 @@ using UniversityHelpdesk.Api.Authentication;
 using UniversityHelpdesk.Api.ErrorHandling;
 using UniversityHelpdesk.Api.Persistence;
 using UniversityHelpdesk.Api.Persistence.Seeding;
+using UniversityHelpdesk.Api.Tickets;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,7 @@ builder.Services.AddHelpdeskControllers();
 builder.Services.AddHelpdeskPersistence();
 builder.Services.AddHelpdeskAuthentication();
 builder.Services.AddScoped<DemoAccountSeeder>();
+builder.Services.AddScoped<TicketService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
