@@ -35,6 +35,19 @@ the repository root.
 
    ```powershell
    $env:ConnectionStrings__HelpdeskDatabase = "Host=127.0.0.1;Port=55432;Database=helpdesk;Username=helpdesk;Password=<your password>"
+   ```
+
+4. Create the schema and seed the demo categories. Migrations are never
+   applied automatically; run this after pulling new migrations:
+
+   ```powershell
+   dotnet tool restore
+   dotnet ef database update --project backend/UniversityHelpdesk.Api
+   ```
+
+5. Start the API:
+
+   ```powershell
    dotnet run --project backend/UniversityHelpdesk.Api --launch-profile http
    ```
 
