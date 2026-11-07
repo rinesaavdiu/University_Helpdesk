@@ -11,6 +11,35 @@ resolved.
 The project is in its early stages. Installation and test instructions will be
 added once they can be verified.
 
+## Local database (Windows PowerShell)
+
+Requires Docker with Docker Compose and the .NET 10 SDK. Run these commands from
+the repository root.
+
+1. Copy the example settings and change `POSTGRES_PASSWORD` in `.env`. If port
+   `55432` is already in use, change `POSTGRES_HOST_PORT` as well.
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. Start PostgreSQL and wait until it is healthy:
+
+   ```powershell
+   docker compose up -d --wait postgres
+   ```
+
+3. Docker Compose reads `.env`, but `dotnet run` does not. Pass the connection
+   string to the API through an environment variable, using the same values as
+   in `.env`:
+
+   ```powershell
+   $env:ConnectionStrings__HelpdeskDatabase = "Host=127.0.0.1;Port=55432;Database=helpdesk;Username=helpdesk;Password=<your password>"
+   dotnet run --project backend/UniversityHelpdesk.Api --launch-profile http
+   ```
+
+To stop PostgreSQL and keep its data, run `docker compose stop postgres`.
+
 ## Directory guide
 
 | Directory   | Purpose                                         |
