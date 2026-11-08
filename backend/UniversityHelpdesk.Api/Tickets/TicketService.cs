@@ -129,6 +129,42 @@ public class TicketService(HelpdeskDbContext db, TimeProvider timeProvider)
             : TicketResult<bool>.Success(true);
     }
 
+    public async Task<TicketResult<TicketResponse>> ChangeStatusAsync(
+        int id, ChangeTicketStatusRequest request, CancellationToken cancellationToken)
+    {
+        var target = Enum.Parse<TicketStatus>(request.Status!);
+        var now = Now();
+
+        // One conditional UPDATE: it only applies if the ticket is still in the status that
+        // directly precedes the target and nobody has changed it since the caller read this version.
+        var updated = 0;
+        if (TicketWorkflow.PreviousStatus(target) is { } expected)
+        {
+            updated = await db.Tickets
+                .Where(ticket => ticket.Id == id
+                    && ticket.Status == expected
+                    && ticket.Version == request.Version)
+                .ExecuteUpdateAsync(setters =>
+                {
+                    setters.SetProperty(ticket => ticket.Status, target);
+                    setters.SetProperty(ticket => ticket.Version, ticket => ticket.Version + 1);
+                    setters.SetProperty(ticket => ticket.UpdatedAt, now);
+
+                    if (target == TicketStatus.Resolved)
+                    {
+                        setters.SetProperty(ticket => ticket.ResolvedAt, now);
+                    }
+                }, cancellationToken);
+        }
+
+        if (updated == 0)
+        {
+            return await ExplainRejectedStatusChangeAsync(id, target, cancellationToken);
+        }
+
+        return await GetAsync(id, userId: 0, isTechnician: true, cancellationToken);
+    }
+
     private IQueryable<Ticket> Visible(int userId, bool isTechnician)
     {
         var tickets = db.Tickets.AsNoTracking().Include(ticket => ticket.Category);
@@ -153,6 +189,32 @@ public class TicketService(HelpdeskDbContext db, TimeProvider timeProvider)
         return current.Status != TicketStatus.Open
             ? TicketResult<T>.Conflict($"Only open tickets can be changed. This ticket is {current.Status}.")
             : TicketResult<T>.Conflict("The ticket was changed by another request. Reload it and try again.");
+    }
+
+    /// <summary>Works out why a conditional status change affected no rows.</summary>
+    private async Task<TicketResult<TicketResponse>> ExplainRejectedStatusChangeAsync(
+        int id, TicketStatus target, CancellationToken cancellationToken)
+    {
+        var current = await db.Tickets
+            .AsNoTracking()
+            .Where(ticket => ticket.Id == id)
+            .Select(ticket => new { ticket.Status })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (current is null)
+        {
+            return TicketResult<TicketResponse>.NotFound();
+        }
+
+        return TicketWorkflow.NextStatus(current.Status) switch
+        {
+            null => TicketResult<TicketResponse>.Conflict(
+                $"This ticket is {current.Status} and its status can no longer change."),
+            var next when next != target => TicketResult<TicketResponse>.Conflict(
+                $"This ticket is {current.Status}, so it can only move to {next}."),
+            _ => TicketResult<TicketResponse>.Conflict(
+                "The ticket was changed by another request. Reload it and try again."),
+        };
     }
 
     private Task<Category?> FindActiveCategoryAsync(int categoryId, CancellationToken cancellationToken) =>

@@ -60,6 +60,19 @@ public class TicketsController(TicketService tickets, IOptions<ApiBehaviorOption
         return ToActionResult(result, _ => NoContent());
     }
 
+    [HttpPatch("{id:int}/status")]
+    [Authorize(Policy = Policies.Technician)]
+    [ProducesResponseType<TicketResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ChangeStatus(
+        int id, ChangeTicketStatusRequest request, CancellationToken cancellationToken)
+    {
+        var result = await tickets.ChangeStatusAsync(id, request, cancellationToken);
+        return ToActionResult(result, Ok);
+    }
+
     private bool IsTechnician => User.IsInRole(nameof(UserRole.Technician));
 
     private IActionResult ToActionResult<T>(TicketResult<T> result, Func<T, IActionResult> onSuccess)

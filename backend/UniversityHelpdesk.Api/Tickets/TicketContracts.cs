@@ -28,6 +28,15 @@ public record UpdateTicketRequest(
     }
 }
 
+/// <summary>
+/// <c>status</c> must be the next status in the workflow; <c>version</c> must match the
+/// ticket's current version.
+/// </summary>
+public record ChangeTicketStatusRequest(
+    [Required, AllowedValues(nameof(TicketStatus.Open), nameof(TicketStatus.InProgress), nameof(TicketStatus.Resolved),
+        ErrorMessage = "The status must be Open, InProgress, or Resolved.")] string? Status,
+    [Required, Range(1, int.MaxValue)] int? Version);
+
 public class ListTicketsQuery
 {
     [AllowedValues(null, nameof(TicketStatus.Open), nameof(TicketStatus.InProgress), nameof(TicketStatus.Resolved),

@@ -158,6 +158,36 @@ public class TicketEndpointTests : IClassFixture<HelpdeskApiFactory>
     }
 
     [Fact]
+    public async Task ChangeStatus_WithoutToken_Returns401()
+    {
+        var response = await Send(HttpMethod.Patch, "/tickets/1/status", "{\"status\":\"InProgress\",\"version\":1}", null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeStatus_AsStudent_Returns403()
+    {
+        var response = await Send(HttpMethod.Patch, "/tickets/1/status", "{\"status\":\"InProgress\",\"version\":1}", UserRole.Student);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("{\"version\":1}", "status")]
+    [InlineData("{\"status\":\"InProgress\"}", "version")]
+    [InlineData("{\"status\":\"Closed\",\"version\":1}", "status")]
+    [InlineData("{\"status\":\"inprogress\",\"version\":1}", "status")]
+    [InlineData("{\"status\":\"InProgress\",\"version\":0}", "version")]
+    [InlineData("{\"status\":\"InProgress\",\"version\":1,\"resolvedAt\":\"2026-11-08T10:00:00Z\"}", "resolvedAt")]
+    public async Task ChangeStatus_WithInvalidBody_Returns400(string body, string field)
+    {
+        var errors = await ReadErrors(await Send(HttpMethod.Patch, "/tickets/1/status", body, UserRole.Technician));
+
+        Assert.True(errors.TryGetProperty(field, out _), $"Expected an error for '{field}'.");
+    }
+
+    [Fact]
     public async Task CreateTicket_WithTooLongRoom_Returns400()
     {
         var body = $"{{\"room\":\"{new string('R', 51)}\",\"categoryId\":3,\"description\":\"The projector shows no image.\"}}";
