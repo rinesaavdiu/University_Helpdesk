@@ -95,6 +95,68 @@ public class TicketEndpointTests : IClassFixture<HelpdeskApiFactory>
         Assert.Equal("The value has the wrong type.", errors.GetProperty("categoryId")[0].GetString());
     }
 
+    [Theory]
+    [InlineData("GET", "/tickets")]
+    [InlineData("GET", "/tickets/1")]
+    [InlineData("PATCH", "/tickets/1")]
+    [InlineData("DELETE", "/tickets/1")]
+    public async Task TicketEndpoints_WithoutToken_Return401(string method, string path)
+    {
+        var body = method == "PATCH" ? "{\"room\":\"A-1\",\"version\":1}" : null;
+
+        var response = await Send(new HttpMethod(method), path, body, null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("PATCH", "/tickets/1")]
+    [InlineData("DELETE", "/tickets/1")]
+    public async Task StudentOnlyTicketEndpoints_AsTechnician_Return403(string method, string path)
+    {
+        var body = method == "PATCH" ? "{\"room\":\"A-1\",\"version\":1}" : null;
+
+        var response = await Send(new HttpMethod(method), path, body, UserRole.Technician);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("?page=0", "page")]
+    [InlineData("?pageSize=0", "pageSize")]
+    [InlineData("?pageSize=101", "pageSize")]
+    [InlineData("?page=abc", "page")]
+    [InlineData("?status=Closed", "status")]
+    [InlineData("?status=open", "status")]
+    public async Task ListTickets_WithInvalidQuery_Returns400(string query, string field)
+    {
+        var errors = await ReadErrors(await Send(HttpMethod.Get, $"/tickets{query}", null, UserRole.Technician));
+
+        Assert.True(errors.TryGetProperty(field, out _), $"Expected an error for '{field}'.");
+    }
+
+    [Theory]
+    [InlineData("{\"room\":\"A-206\"}", "version")]
+    [InlineData("{\"version\":1}", "body")]
+    [InlineData("{\"room\":\"   \",\"version\":1}", "room")]
+    [InlineData("{\"description\":\"short\",\"version\":1}", "description")]
+    [InlineData("{\"room\":\"A-206\",\"version\":0}", "version")]
+    [InlineData("{\"room\":\"A-206\",\"version\":1,\"status\":\"Resolved\"}", "status")]
+    public async Task UpdateTicket_WithInvalidBody_Returns400(string body, string field)
+    {
+        var errors = await ReadErrors(await Send(HttpMethod.Patch, "/tickets/1", body, UserRole.Student));
+
+        Assert.True(errors.TryGetProperty(field, out _), $"Expected an error for '{field}'.");
+    }
+
+    [Fact]
+    public async Task GetTicket_WithNonNumericId_Returns404()
+    {
+        var response = await Send(HttpMethod.Get, "/tickets/abc", null, UserRole.Student);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task CreateTicket_WithTooLongRoom_Returns400()
     {
