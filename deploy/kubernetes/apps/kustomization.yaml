@@ -1,0 +1,19 @@
+# The API and the Notification Worker. Apply after the db-init Job has completed.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: university-helpdesk
+
+resources:
+  - api.yaml
+  - worker.yaml
+
+# The API publishes and the worker consumes with exactly these settings, so both declare and use
+# the same exchange, queue, and binding. A changed value gets a new name, which rolls both Deployments.
+configMapGenerator:
+  - name: rabbitmq-settings
+    literals:
+      - RabbitMq__HostName=rabbitmq
+      - RabbitMq__Port=5672
+      - RabbitMq__VirtualHost=helpdesk
+      - RabbitMq__Exchange=helpdesk.events
+      - RabbitMq__TicketResolvedQueue=helpdesk.ticket-resolved

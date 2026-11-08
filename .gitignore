@@ -25,6 +25,7 @@ Thumbs.db
 
 # Local secret configuration
 *.postman_environment.json
+deploy/kubernetes/infrastructure/secrets.env
 appsettings.*.local.json
 appsettings.Local.json
 secrets.json

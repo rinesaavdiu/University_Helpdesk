@@ -1,0 +1,8 @@
+# One-off database initialization. A Job cannot be changed once created, so delete the
+# previous one before applying this again (see the README).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: university-helpdesk
+
+resources:
+  - db-init-job.yaml

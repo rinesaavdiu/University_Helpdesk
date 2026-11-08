@@ -1,0 +1,50 @@
+# Applies migrations, then creates any missing demo accounts. Both steps are safe to repeat.
+# Wait for this Job to complete before applying the apps.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  labels:
+    app.kubernetes.io/name: db-init
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: db-init
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:18.6-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do sleep 2; done"]
+      containers:
+        - name: db-init
+          image: university-helpdesk-api:local
+          imagePullPolicy: IfNotPresent
+          args: ["migrate-database", "seed-demo-users"]
+          env:
+            - name: POSTGRES_DB
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: POSTGRES_DB } }
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: POSTGRES_PASSWORD } }
+            - name: ConnectionStrings__HelpdeskDatabase
+              value: Host=postgres;Port=5432;Database=$(POSTGRES_DB);Username=$(POSTGRES_USER);Password=$(POSTGRES_PASSWORD)
+            # Demo accounts are created only in Development.
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
+            - name: DemoAccounts__Student1Password
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: DEMO_STUDENT1_PASSWORD } }
+            - name: DemoAccounts__Student2Password
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: DEMO_STUDENT2_PASSWORD } }
+            - name: DemoAccounts__Technician1Password
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: DEMO_TECHNICIAN1_PASSWORD } }
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }

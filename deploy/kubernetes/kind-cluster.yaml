@@ -1,0 +1,6 @@
+# Local single-node cluster for trying the manifests: kind create cluster --config deploy/kubernetes/kind-cluster.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: university-helpdesk
+nodes:
+  - role: control-plane

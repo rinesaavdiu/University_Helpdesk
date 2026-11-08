@@ -1,0 +1,108 @@
+# Internal only: /metrics is served on the same port for in-cluster monitoring, so this Service
+# is not exposed outside the cluster. Use kubectl port-forward for local access.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: helpdesk-api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: helpdesk-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: helpdesk-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: helpdesk-api
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: helpdesk-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /metrics
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: helpdesk-api
+      containers:
+        - name: api
+          image: university-helpdesk-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: rabbitmq-settings
+          env:
+            - name: POSTGRES_DB
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: POSTGRES_DB } }
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: POSTGRES_PASSWORD } }
+            - name: ConnectionStrings__HelpdeskDatabase
+              value: Host=postgres;Port=5432;Database=$(POSTGRES_DB);Username=$(POSTGRES_USER);Password=$(POSTGRES_PASSWORD)
+            - name: RabbitMq__UserName
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: RABBITMQ_USER } }
+            - name: RabbitMq__Password
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: RABBITMQ_PASSWORD } }
+            - name: Jwt__SigningKey
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: JWT_SIGNING_KEY } }
+            - name: Redis__Configuration
+              value: redis:6379
+            # Same as the Compose stack: Development enables Swagger for local use.
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Development
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Liveness checks only the process, so a database outage takes the pods out of the
+          # Service without restarting them.
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }

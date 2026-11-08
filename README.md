@@ -13,7 +13,9 @@ The commands below are for Windows PowerShell and run from the repository root.
 ## Run everything with Docker Compose
 
 Requires Docker with Docker Compose v2 (on Windows, Docker Desktop with the
-WSL 2 backend). The .NET SDK is not needed for this.
+WSL 2 backend, or Docker Engine installed inside a WSL 2 distribution, where
+you run the `docker` commands from the repository folder under `/mnt/c/...`).
+The .NET SDK is not needed for this.
 
 1. Copy the example settings, then open `.env` and replace every `change-me`.
    Use only letters and digits in passwords, and at least 32 characters for
@@ -65,6 +67,73 @@ WSL 2 backend). The .NET SDK is not needed for this.
 To stop the system and keep the data, run `docker compose stop` or
 `docker compose down`. `docker compose down -v` also deletes the database and
 the RabbitMQ messages.
+
+## Deploy to a local Kubernetes cluster
+
+`deploy/kubernetes/` holds three Kustomize layers, applied in this order:
+
+| Layer            | Contents |
+| ---------------- | -------- |
+| `infrastructure` | Namespace `university-helpdesk`, the `helpdesk-secrets` Secret, PostgreSQL and RabbitMQ as StatefulSets with 1 GiB volumes, Redis, and Mailpit. |
+| `init`           | The `db-init` Job: waits for PostgreSQL, applies the migrations, and creates the demo accounts. |
+| `apps`           | The API Deployment (two replicas) behind the internal `api` Service, and the Notification Worker Deployment. |
+
+The API pods use `/health/ready` for readiness and `/health/live` for liveness,
+so a database outage takes them out of the Service without restarting them. The
+worker's probes check its health file. The `api` Service is `ClusterIP` only:
+`/metrics` stays reachable for monitoring inside the cluster (the pods carry
+`prometheus.io/scrape` annotations), but nothing is exposed outside it.
+
+Requires Docker, [kind](https://kind.sigs.k8s.io/), and `kubectl`. The
+commands are the same in PowerShell and in a WSL shell.
+
+1. Create the cluster, build the images, and copy them into the cluster:
+
+   ```powershell
+   kind create cluster --config deploy/kubernetes/kind-cluster.yaml
+   docker compose build api worker
+   kind load docker-image university-helpdesk-api:local university-helpdesk-worker:local --name university-helpdesk
+   ```
+
+2. Create the local secrets file. It uses the same keys as `.env` and is
+   ignored by Git:
+
+   ```powershell
+   Copy-Item deploy/kubernetes/infrastructure/secrets.env.example deploy/kubernetes/infrastructure/secrets.env
+   notepad deploy/kubernetes/infrastructure/secrets.env
+   ```
+
+3. Deploy the layers. The apps are applied only after the Job has completed,
+   so the API replicas never race to change the schema. A Job cannot be
+   changed once created, so the previous one is deleted first:
+
+   ```powershell
+   kubectl apply -k deploy/kubernetes/infrastructure
+   kubectl -n university-helpdesk delete job db-init --ignore-not-found
+   kubectl apply -k deploy/kubernetes/init
+   kubectl -n university-helpdesk wait --for=condition=complete job/db-init --timeout=300s
+   kubectl apply -k deploy/kubernetes/apps
+   kubectl -n university-helpdesk rollout status deployment/api
+   kubectl -n university-helpdesk get pods
+   ```
+
+4. Open the API and Mailpit from your machine:
+
+   ```powershell
+   kubectl -n university-helpdesk port-forward service/api 58090:8080
+   kubectl -n university-helpdesk port-forward service/mailpit 58125:8025
+   ```
+
+   Swagger is then at `http://localhost:58090/swagger` and Mailpit at
+   `http://localhost:58125`. A port-forward sends every request to a single
+   pod; requests from inside the cluster to `http://api:8080` are spread across
+   both replicas.
+
+After changing the code, repeat the build and `kind load` commands, run the
+`db-init` Job again if there are new migrations, and then run
+`kubectl -n university-helpdesk rollout restart deployment/api deployment/notification-worker`.
+`kind delete cluster --name university-helpdesk` removes the cluster and its
+data.
 
 ## Run the API and worker from source
 
@@ -250,6 +319,30 @@ npx newman run tests/postman/UniversityHelpdesk.postman_collection.json -e tests
 `baseUrl` points at the Compose gateway; use `http://localhost:5276` for
 `dotnet run`. Each run creates new tickets, so it can be repeated.
 
+### Benchmark
+
+`benchmarks/UniversityHelpdesk.Benchmark` measures the documented workload
+against a running system: 20 concurrent users create 1,000 tickets, then list
+tickets as a technician (all tickets) and as students (their own), and read the
+categories cold (the Redis key is deleted before each request) and warm. For
+each scenario it reports the request count, failures, median, p95, and maximum
+latency, and throughput.
+
+The benchmark creates its own accounts directly in the API's database, with
+emails ending in `@benchmark.test` and a run ID, so it needs that database's
+connection string. At the end it deletes those accounts and their tickets and
+nothing else. With the Compose system running:
+
+```powershell
+$env:HELPDESK_BENCH_DATABASE = "Host=127.0.0.1;Port=55432;Database=helpdesk;Username=helpdesk;Password=<POSTGRES_PASSWORD>"
+dotnet run --project benchmarks/UniversityHelpdesk.Benchmark -c Release -- --redis 127.0.0.1:56379 --environment "<describe the machine and deployment>" --output benchmark.json
+Remove-Item Env:HELPDESK_BENCH_DATABASE
+```
+
+Run it with `--help` to see the options for the user, ticket, and request counts.
+It exits with `1` if any request fails. Recorded results are in
+`docs/benchmark-results.md`.
+
 ## Monitoring
 
 | Path            | Purpose                                                                                 |
@@ -272,8 +365,9 @@ or ticket descriptions. See `docs/api-contract.md` for the metric names.
 | Directory        | Purpose                                                       |
 | ---------------- | ------------------------------------------------------------- |
 | `backend/`       | Source code and Dockerfiles for the API and the Notification Worker |
+| `benchmarks/`    | Load benchmark for the documented performance target          |
 | `database/init/` | Scripts PostgreSQL runs when its Compose volume is created    |
-| `deploy/`        | Configuration for the Compose gateway                         |
+| `deploy/`        | Configuration for the Compose gateway, and Kubernetes manifests in `deploy/kubernetes/` |
 | `tests/`         | Unit, integration, and recovery tests, and the Postman collection |
 | `docs/`          | Project documentation and requirements                        |
 | `scripts/`       | Helper scripts for development and maintenance                |

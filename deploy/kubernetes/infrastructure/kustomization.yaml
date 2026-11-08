@@ -1,0 +1,22 @@
+# Stateful services and the shared secret. Apply first; see the README for the full order.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: university-helpdesk
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - rabbitmq.yaml
+  - redis.yaml
+  - mailpit.yaml
+
+# secrets.env is local and git-ignored: copy secrets.env.example and replace every change-me value.
+# The keys are the ones .env uses for Docker Compose.
+secretGenerator:
+  - name: helpdesk-secrets
+    envs:
+      - secrets.env
+
+generatorOptions:
+  # The init Job and the apps live in other kustomizations and refer to the secret by this fixed name.
+  disableNameSuffixHash: true

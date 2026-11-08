@@ -105,7 +105,7 @@ inbox during local development.
 ## Nonfunctional requirements
 
 Each requirement states how it will be verified. Performance figures are
-targets; measured results will be recorded in a later commit.
+targets; measured results are recorded in `benchmark-results.md`.
 
 | ID       | Area            | Requirement                                                                                                                                  | Verification                                                                                         |
 | -------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -113,7 +113,7 @@ targets; measured results will be recorded in a later commit.
 | NFR-S2   | Security        | Role and ownership rules from the API contract are enforced on the server.                                                                    | Integration tests cover each endpoint with the wrong role (`403`) and another student's ticket (`404`). |
 | NFR-S3   | Security        | Passwords are stored only as salted, adaptive hashes. Secrets (JWT signing key, database passwords) come from configuration, not source code. | Unit test on the hashing service; review that no secrets are committed and `.env` files are ignored.  |
 | NFR-S4   | Security        | Error responses for unexpected failures contain no stack traces or internal details, only a generic message and a trace ID.                  | Integration test forces an unhandled exception and inspects the response body.                       |
-| NFR-P1   | Performance     | `GET /tickets` has a p95 latency under 300 ms with 20 concurrent users and 1,000 seeded tickets on the local Docker Compose setup.           | Load test script with the documented workload; results recorded in a later commit.                   |
+| NFR-P1   | Performance     | `GET /tickets` has a p95 latency under 300 ms with 20 concurrent users and 1,000 seeded tickets on the local Docker Compose setup.           | `benchmarks/UniversityHelpdesk.Benchmark` with the documented workload; results in `benchmark-results.md`. |
 | NFR-P2   | Performance     | `GET /categories` is served from the Redis cache when it is available.                                                                       | Integration test verifies a cache hit after the first request.                                       |
 | NFR-R1   | Reliability     | If Redis is unavailable, `GET /categories` still succeeds by reading from PostgreSQL.                                                         | Integration test with Redis stopped or replaced by a failing stub.                                   |
 | NFR-R2   | Reliability     | A ticket resolution and its pending notification are saved in one transaction; a notification is never lost if RabbitMQ or Mailpit is down. | Integration test resolves a ticket while the broker is unavailable, then verifies delivery after it returns. |

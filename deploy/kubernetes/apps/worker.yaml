@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-worker
+  labels:
+    app.kubernetes.io/name: notification-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: notification-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: notification-worker
+    spec:
+      containers:
+        - name: worker
+          image: university-helpdesk-worker:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: rabbitmq-settings
+          env:
+            - name: RabbitMq__UserName
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: RABBITMQ_USER } }
+            - name: RabbitMq__Password
+              valueFrom: { secretKeyRef: { name: helpdesk-secrets, key: RABBITMQ_PASSWORD } }
+            - name: RabbitMq__FailedQueue
+              value: helpdesk.ticket-resolved.failed
+            - name: Smtp__Host
+              value: mailpit
+            - name: Smtp__Port
+              value: "1025"
+            - name: Health__FilePath
+              value: /tmp/notification-worker.alive
+          # The worker rewrites its health file only while it is consuming, so a stale or missing
+          # file means it has lost RabbitMQ and should be restarted.
+          startupProbe:
+            exec:
+              command: ["sh", "-c", "find /tmp/notification-worker.alive -mmin -1 | grep -q ."]
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "find /tmp/notification-worker.alive -mmin -1 | grep -q ."]
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "find /tmp/notification-worker.alive -mmin -1 | grep -q ."]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
