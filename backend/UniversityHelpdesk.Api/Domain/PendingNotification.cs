@@ -24,4 +24,7 @@ public class PendingNotification
     public DateTime? PublishedAt { get; set; }
 
     public int Attempts { get; set; }
+
+    /// <summary>Earliest time of the next publish attempt after a failure; null means now.</summary>
+    public DateTime? NextAttemptAt { get; set; }
 }

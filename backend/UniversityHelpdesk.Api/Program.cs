@@ -2,6 +2,7 @@ using Microsoft.OpenApi;
 using UniversityHelpdesk.Api.Authentication;
 using UniversityHelpdesk.Api.Categories;
 using UniversityHelpdesk.Api.ErrorHandling;
+using UniversityHelpdesk.Api.Notifications;
 using UniversityHelpdesk.Api.Persistence;
 using UniversityHelpdesk.Api.Persistence.Seeding;
 using UniversityHelpdesk.Api.Tickets;
@@ -14,6 +15,7 @@ builder.Services.AddHelpdeskAuthentication();
 builder.Services.AddScoped<DemoAccountSeeder>();
 builder.Services.AddScoped<TicketService>();
 builder.Services.AddScoped<CategoryService>();
+builder.Services.AddHelpdeskNotifications();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

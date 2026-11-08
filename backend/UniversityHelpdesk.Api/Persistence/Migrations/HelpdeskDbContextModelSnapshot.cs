@@ -100,6 +100,9 @@ namespace UniversityHelpdesk.Api.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<DateTime?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Payload")
                         .IsRequired()
                         .HasColumnType("jsonb");

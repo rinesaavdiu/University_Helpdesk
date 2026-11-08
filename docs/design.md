@@ -149,8 +149,11 @@ the status change and a new `PendingNotifications` row are written in the same
 database transaction. Either both are saved or neither is. A background
 publisher then sends unpublished rows to RabbitMQ and marks them as published.
 If RabbitMQ is down, rows wait and are retried, so no notification is lost and
-the technician's request is not affected. The worker must tolerate receiving
-the same event more than once.
+the technician's request is not affected. A row is marked published only after
+the broker confirms the message, so delivery is at least once: a crash after the
+confirmation but before the database commit publishes the event again. The
+worker must tolerate receiving the same event more than once; every message
+carries the event ID as its message ID.
 
 **Category cache fallback.** `GET /categories` first reads the category list
 from Redis. On a cache miss, the API reads from PostgreSQL and stores the result
