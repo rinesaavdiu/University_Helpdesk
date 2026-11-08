@@ -24,10 +24,11 @@ the repository root.
    Copy-Item .env.example .env
    ```
 
-2. Start PostgreSQL and RabbitMQ and wait until they are healthy:
+2. Start PostgreSQL, RabbitMQ, Redis, and Mailpit and wait until they are
+   healthy:
 
    ```powershell
-   docker compose up -d --wait postgres rabbitmq
+   docker compose up -d --wait
    ```
 
 3. Docker Compose reads `.env`, but `dotnet run` does not. Pass the connection
@@ -61,10 +62,19 @@ the repository root.
    dotnet user-secrets set "RabbitMq:Password" "<RABBITMQ_PASSWORD from .env>" --project $project
    ```
 
+   The Notification Worker has its own user secrets and needs the same RabbitMQ
+   password:
+
+   ```powershell
+   dotnet user-secrets set "RabbitMq:Password" "<RABBITMQ_PASSWORD from .env>" --project backend/UniversityHelpdesk.NotificationWorker
+   ```
+
    Run `dotnet user-secrets list --project $project` to see the values later.
-   The other RabbitMQ settings are in `appsettings.json` and match Compose. If
-   you changed `RABBITMQ_HOST_PORT`, also set `$env:RabbitMq__Port` before
-   starting the API.
+   The other settings in both `appsettings.json` files match Compose. If you
+   changed a host port in `.env`, override the matching setting with an
+   environment variable before starting the API or the worker:
+   `$env:RabbitMq__Port`, `$env:Redis__Configuration` (for example
+   `127.0.0.1:56379`), or `$env:Smtp__Port`.
 
 6. Create the demo accounts `student1@uni.test`, `student2@uni.test`
    (students), and `technician1@uni.test` (technician). The command only runs
@@ -100,13 +110,47 @@ the repository root.
    publishes the same event again on the next attempt.
    The RabbitMQ management UI is at `http://localhost:55673`.
 
+   `GET /categories` is cached in Redis for 5 minutes. If Redis is not running,
+   the API logs a warning and reads the categories from PostgreSQL instead.
+
+8. In a second terminal, start the Notification Worker. It sends a
+   confirmation email for each resolved ticket to Mailpit, which shows every
+   message at `http://localhost:58025`:
+
+   ```powershell
+   dotnet run --project backend/UniversityHelpdesk.NotificationWorker
+   ```
+
+   The worker acknowledges a message only after the SMTP server accepts the
+   email. Failed sends are retried 5 times with increasing delays; after that,
+   the message is moved to the `helpdesk.ticket-resolved.failed` queue, where
+   it stays for inspection in the RabbitMQ management UI. If the worker is
+   stopped, messages wait in the queue and are delivered when it starts again.
+
+   Emails are delivered at least once. If the worker crashes after the SMTP
+   server accepts an email but before RabbitMQ receives the acknowledgement,
+   the message is delivered again and the student gets a duplicate email.
+
+## Monitoring
+
+| Path            | Purpose                                                                                 |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `/health/live`  | Liveness probe: the API process is serving requests. No dependency checks.              |
+| `/health/ready` | Readiness probe: PostgreSQL is reachable. Returns `503` when it is not.                  |
+| `/metrics`      | Prometheus metrics: request counts, `5xx` errors, and latency per route template, plus category cache hits and misses. |
+
+The API and the worker write JSON logs to the console. Each API request is
+logged once with its route template, status code, duration, and trace ID.
+Notification logs include the event ID. Logs never contain credentials, tokens,
+or ticket descriptions. See `docs/api-contract.md` for the metric names.
+
 To stop the services and keep their data, run `docker compose stop`.
 
 ## Directory guide
 
 | Directory   | Purpose                                         |
 | ----------- | ----------------------------------------------- |
-| `backend/`  | Source code for the API                         |
+| `backend/`  | Source code for the API and the Notification Worker |
 | `database/` | Database schema, migrations, and seed data      |
 | `tests/`    | Automated tests                                 |
 | `docs/`     | Project documentation and requirements          |

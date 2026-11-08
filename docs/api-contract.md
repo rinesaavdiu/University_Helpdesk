@@ -255,3 +255,38 @@ Validation errors (`400`) add an `errors` object keyed by field name:
 Checks are applied in this order: authentication (`401`), role (`403`), request
 validation (`400`), ticket existence and visibility (`404`), then ticket state
 and version (`409`).
+
+## Operations endpoints
+
+These endpoints need no token and are meant for probes and monitoring, not for
+clients. In a deployment, keep them reachable only from inside the cluster.
+
+| Method | Path            | Purpose                                                                                                                                                                       | Response                                                     |
+| ------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `GET`  | `/health/live`  | Liveness: the process is running and serving requests. Runs no dependency checks, so a slow database never causes a restart.                                                  | `200` with `{"status":"Healthy","checks":[]}`                 |
+| `GET`  | `/health/ready` | Readiness: the API can serve requests. Checks PostgreSQL with a 3-second limit. Redis and RabbitMQ are not checked, because categories fall back to PostgreSQL and resolution events wait in the outbox. | `200` when healthy, `503` otherwise                           |
+| `GET`  | `/metrics`      | Prometheus metrics in the text exposition format.                                                                                                                             | `200`, `text/plain`                                           |
+
+Health responses list each check's `name`, `status`, and `durationMs`, without
+error details:
+
+```json
+{
+  "status": "Healthy",
+  "checks": [{ "name": "database", "status": "Healthy", "durationMs": 4.2 }]
+}
+```
+
+Application metrics:
+
+| Metric                                   | Type      | Labels                           | Meaning                                                       |
+| ---------------------------------------- | --------- | -------------------------------- | ------------------------------------------------------------- |
+| `helpdesk_http_requests_total`           | Counter   | `method`, `route`, `status_code` | Completed HTTP requests.                                      |
+| `helpdesk_http_request_errors_total`     | Counter   | `method`, `route`, `status_code` | Requests that ended with a `5xx` status, including unhandled exceptions. |
+| `helpdesk_http_request_duration_seconds` | Histogram | `method`, `route`                | Request latency.                                              |
+| `helpdesk_category_cache_lookups_total`  | Counter   | `result` (`hit`, `miss`, `error`) | Category cache lookups; `error` means Redis was unavailable.  |
+
+`route` is the route template, such as `/tickets/{id:int}`, never the raw path;
+requests that match no route use `unmatched`. Requests to `/metrics` are not
+counted. Process and runtime metrics from the Prometheus client are also
+included.

@@ -31,6 +31,7 @@ public class HelpdeskApiFactory : WebApplicationFactory<Program>
                 ["Jwt:SigningKey"] = SigningKey,
                 ["ConnectionStrings:HelpdeskDatabase"] = "Host=127.0.0.1;Port=1;Database=unused;Timeout=1",
                 ["OutboxPublisher:Enabled"] = "false",
+                ["Redis:Configuration"] = "",
             };
             foreach (var (key, value) in ExtraSettings)
             {

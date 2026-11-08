@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/backend/">
     <Project Path="backend/UniversityHelpdesk.Api/UniversityHelpdesk.Api.csproj" />
+    <Project Path="backend/UniversityHelpdesk.NotificationWorker/UniversityHelpdesk.NotificationWorker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/UniversityHelpdesk.Api.Tests/UniversityHelpdesk.Api.Tests.csproj" />
+    <Project Path="tests/UniversityHelpdesk.NotificationWorker.Tests/UniversityHelpdesk.NotificationWorker.Tests.csproj" />
   </Folder>
 </Solution>

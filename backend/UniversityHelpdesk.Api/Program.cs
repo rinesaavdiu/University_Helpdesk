@@ -2,6 +2,7 @@ using Microsoft.OpenApi;
 using UniversityHelpdesk.Api.Authentication;
 using UniversityHelpdesk.Api.Categories;
 using UniversityHelpdesk.Api.ErrorHandling;
+using UniversityHelpdesk.Api.Monitoring;
 using UniversityHelpdesk.Api.Notifications;
 using UniversityHelpdesk.Api.Persistence;
 using UniversityHelpdesk.Api.Persistence.Seeding;
@@ -9,13 +10,26 @@ using UniversityHelpdesk.Api.Tickets;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.UseUtcTimestamp = true;
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+});
+builder.Logging.Configure(options =>
+    options.ActivityTrackingOptions = ActivityTrackingOptions.TraceId | ActivityTrackingOptions.SpanId);
+
 builder.Services.AddHelpdeskControllers();
 builder.Services.AddHelpdeskPersistence();
 builder.Services.AddHelpdeskAuthentication();
 builder.Services.AddScoped<DemoAccountSeeder>();
 builder.Services.AddScoped<TicketService>();
 builder.Services.AddScoped<CategoryService>();
+builder.Services.AddOptions<RedisOptions>().BindConfiguration(RedisOptions.SectionName);
+builder.Services.AddSingleton<CategoryCache>();
 builder.Services.AddHelpdeskNotifications();
+builder.Services.AddHelpdeskMonitoring();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -56,6 +70,10 @@ if (args.Contains(DemoAccountSeeder.CommandName))
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+// Routing runs before the metrics middleware so it can label requests with the route template.
+app.UseRouting();
+app.UseMiddleware<RequestMetricsMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -68,6 +86,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHelpdeskMonitoring();
 
 app.Run();
 return 0;

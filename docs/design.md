@@ -157,9 +157,19 @@ carries the event ID as its message ID.
 
 **Category cache fallback.** `GET /categories` first reads the category list
 from Redis. On a cache miss, the API reads from PostgreSQL and stores the result
-in Redis with a short expiry (planned: 5 minutes). If Redis is unreachable, the
-API logs a warning and serves the list from PostgreSQL, so the endpoint keeps
-working without the cache.
+in Redis for 5 minutes. If Redis is unreachable, the API logs a warning and
+serves the list from PostgreSQL, so the endpoint keeps working without the
+cache. Connecting and each cache command are limited to 1 second, and while the
+Redis client knows it is disconnected the cache is skipped immediately.
+
+**Email delivery.** The Notification Worker acknowledges a message only after
+the SMTP server accepts the email. A failed send is retried with increasing
+delays; after the last attempt, the message is moved to the durable
+`helpdesk.ticket-resolved.failed` queue with the failure reason, attempt count,
+and time as headers. Delivery is at least once: if the worker crashes after the
+SMTP server accepts the email but before the acknowledgement reaches RabbitMQ,
+the message is redelivered and the student receives the email twice. The email's
+`Message-ID` is derived from the event ID, so both copies carry the same ID.
 
 ## Deployment and operations
 
@@ -168,7 +178,9 @@ working without the cache.
 | Local development  | Docker Compose starts the Ticket API, Notification Worker, PostgreSQL, Redis, RabbitMQ, and Mailpit with one command.                                      |
 | Kubernetes         | The Ticket API runs as a Deployment with two replicas behind a Service, which load-balances requests between them. The worker runs as its own Deployment. |
 | CI/CD              | GitHub Actions builds the solution and runs the tests on every push and pull request, then verifies that the containers start and pass health checks.     |
-| Monitoring         | Structured logs with a trace ID per request, liveness and readiness health check endpoints used by Kubernetes probes, and request count and latency metrics. |
+| Monitoring         | JSON console logs with a trace ID per request, liveness (`/health/live`) and readiness (`/health/ready`) endpoints for Kubernetes probes, and Prometheus request count, error, and latency metrics at `/metrics`. |
 
-The exact health check and metrics paths will be added to the API contract when
-they are implemented.
+The operations endpoints and metric names are listed in the API contract. Logs
+contain route templates, event IDs, and ticket IDs; they never contain
+credentials, tokens, or ticket descriptions, and request and notification logs
+contain no email addresses.
