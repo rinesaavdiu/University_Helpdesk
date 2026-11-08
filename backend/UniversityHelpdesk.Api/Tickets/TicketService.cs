@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using UniversityHelpdesk.Api.Domain;
+using UniversityHelpdesk.Api.Notifications;
 using UniversityHelpdesk.Api.Persistence;
 
 namespace UniversityHelpdesk.Api.Tickets;
@@ -135,8 +137,14 @@ public class TicketService(HelpdeskDbContext db, TimeProvider timeProvider)
         var target = Enum.Parse<TicketStatus>(request.Status!);
         var now = Now();
 
+        // The status change and its notification event are saved together or not at all.
+        await using var transaction = TicketWorkflow.NotifiesStudent(target)
+            ? await db.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
         // One conditional UPDATE: it only applies if the ticket is still in the status that
         // directly precedes the target and nobody has changed it since the caller read this version.
+        // A stale or repeated request changes no rows, so it never reaches the event insert.
         var updated = 0;
         if (TicketWorkflow.PreviousStatus(target) is { } expected)
         {
@@ -162,7 +170,43 @@ public class TicketService(HelpdeskDbContext db, TimeProvider timeProvider)
             return await ExplainRejectedStatusChangeAsync(id, target, cancellationToken);
         }
 
+        if (transaction is not null)
+        {
+            await AddResolutionNotificationAsync(id, now, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+
         return await GetAsync(id, userId: 0, isTechnician: true, cancellationToken);
+    }
+
+    private async Task AddResolutionNotificationAsync(int ticketId, DateTime resolvedAt, CancellationToken cancellationToken)
+    {
+        var ticket = await db.Tickets
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == ticketId)
+            .Select(candidate => new
+            {
+                candidate.Student.Email,
+                candidate.Student.DisplayName,
+                candidate.Room,
+                Category = candidate.Category.Name,
+                candidate.Description,
+            })
+            .SingleAsync(cancellationToken);
+
+        var payload = new TicketResolvedPayload(
+            ticketId, ticket.DisplayName, ticket.Room, ticket.Category, ticket.Description, resolvedAt);
+
+        db.PendingNotifications.Add(new PendingNotification
+        {
+            Id = Guid.CreateVersion7(timeProvider.GetUtcNow()),
+            TicketId = ticketId,
+            RecipientEmail = ticket.Email,
+            EventType = PendingNotification.TicketResolved,
+            Payload = JsonSerializer.Serialize(payload, JsonSerializerOptions.Web),
+            CreatedAt = resolvedAt,
+        });
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private IQueryable<Ticket> Visible(int userId, bool isTechnician)

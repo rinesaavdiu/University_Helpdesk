@@ -11,6 +11,8 @@ public class HelpdeskDbContext(DbContextOptions<HelpdeskDbContext> options) : Db
 
     public DbSet<Ticket> Tickets => Set<Ticket>();
 
+    public DbSet<PendingNotification> PendingNotifications => Set<PendingNotification>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(HelpdeskDbContext).Assembly);

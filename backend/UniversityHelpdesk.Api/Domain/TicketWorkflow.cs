@@ -10,6 +10,9 @@ public static class TicketWorkflow
         _ => null,
     };
 
+    /// <summary>Whether reaching <paramref name="target"/> sends the student a confirmation email.</summary>
+    public static bool NotifiesStudent(TicketStatus target) => target == TicketStatus.Resolved;
+
     /// <summary>The only status a ticket can move to <paramref name="target"/> from, if any.</summary>
     public static TicketStatus? PreviousStatus(TicketStatus target) => target switch
     {

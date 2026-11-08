@@ -25,6 +25,21 @@ public class HelpdeskModelTests
     }
 
     [Fact]
+    public void PendingNotifications_AllowOneEventPerTicketAndType()
+    {
+        using var context = CreateContext();
+
+        var entity = context.Model.FindEntityType(typeof(PendingNotification))!;
+        var unique = Assert.Single(entity.GetIndexes(), index => index.IsUnique);
+
+        Assert.Equal(
+            [nameof(PendingNotification.TicketId), nameof(PendingNotification.EventType)],
+            unique.Properties.Select(property => property.Name));
+        Assert.Equal(ValueGenerated.Never, entity.FindProperty(nameof(PendingNotification.Id))!.ValueGenerated);
+        Assert.Equal("jsonb", entity.FindProperty(nameof(PendingNotification.Payload))!.GetColumnType());
+    }
+
+    [Fact]
     public void Categories_AreSeededWithStableIds()
     {
         using var context = CreateContext();

@@ -84,6 +84,54 @@ namespace UniversityHelpdesk.Api.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("UniversityHelpdesk.Api.Domain.PendingNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("IX_PendingNotifications_Unpublished")
+                        .HasFilter("\"PublishedAt\" IS NULL");
+
+                    b.HasIndex("TicketId", "EventType")
+                        .IsUnique();
+
+                    b.ToTable("PendingNotifications", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PendingNotifications_Attempts_NotNegative", "\"Attempts\" >= 0");
+
+                            t.HasCheckConstraint("CK_PendingNotifications_EventType", "\"EventType\" IN ('TicketResolved')");
+                        });
+                });
+
             modelBuilder.Entity("UniversityHelpdesk.Api.Domain.Ticket", b =>
                 {
                     b.Property<int>("Id")
@@ -195,6 +243,17 @@ namespace UniversityHelpdesk.Api.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_Users_Role", "\"Role\" IN ('Student', 'Technician')");
                         });
+                });
+
+            modelBuilder.Entity("UniversityHelpdesk.Api.Domain.PendingNotification", b =>
+                {
+                    b.HasOne("UniversityHelpdesk.Api.Domain.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
                 });
 
             modelBuilder.Entity("UniversityHelpdesk.Api.Domain.Ticket", b =>

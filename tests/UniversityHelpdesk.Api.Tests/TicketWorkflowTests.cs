@@ -19,6 +19,15 @@ public class TicketWorkflowTests
     }
 
     [Theory]
+    [InlineData(TicketStatus.Open, false)]
+    [InlineData(TicketStatus.InProgress, false)]
+    [InlineData(TicketStatus.Resolved, true)]
+    public void NotifiesStudent_OnlyOnResolution(TicketStatus target, bool expected)
+    {
+        Assert.Equal(expected, TicketWorkflow.NotifiesStudent(target));
+    }
+
+    [Theory]
     [InlineData(TicketStatus.InProgress, TicketStatus.Open)]
     [InlineData(TicketStatus.Resolved, TicketStatus.InProgress)]
     public void PreviousStatus_IsTheOnlyAllowedSource(TicketStatus target, TicketStatus expected)
