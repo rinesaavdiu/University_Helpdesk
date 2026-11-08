@@ -19,10 +19,17 @@ builder.Logging.AddJsonConsole(options =>
 });
 builder.Logging.Configure(options =>
     options.ActivityTrackingOptions = ActivityTrackingOptions.TraceId | ActivityTrackingOptions.SpanId);
+if (args.Contains(DatabaseMigrator.CommandName))
+{
+    // On an empty database EF Core probes the missing history table with a query that fails and
+    // logs it as an error. Real migration failures still end the command with an exception.
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.None);
+}
 
 builder.Services.AddHelpdeskControllers();
 builder.Services.AddHelpdeskPersistence();
 builder.Services.AddHelpdeskAuthentication();
+builder.Services.AddScoped<DatabaseMigrator>();
 builder.Services.AddScoped<DemoAccountSeeder>();
 builder.Services.AddScoped<TicketService>();
 builder.Services.AddScoped<CategoryService>();
@@ -53,17 +60,24 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-if (args.Contains(DemoAccountSeeder.CommandName))
+// One-off commands run instead of the web server; with both, migrations are applied first.
+var migrate = args.Contains(DatabaseMigrator.CommandName);
+var seedDemoUsers = args.Contains(DemoAccountSeeder.CommandName);
+if (migrate || seedDemoUsers)
 {
-    if (!app.Environment.IsDevelopment())
+    if (seedDemoUsers && !app.Environment.IsDevelopment())
     {
         app.Logger.LogError("{Command} only runs in the Development environment.", DemoAccountSeeder.CommandName);
         return 1;
     }
 
     using var scope = app.Services.CreateScope();
-    var seeded = await scope.ServiceProvider.GetRequiredService<DemoAccountSeeder>().SeedAsync();
-    return seeded ? 0 : 1;
+    if (migrate)
+    {
+        await scope.ServiceProvider.GetRequiredService<DatabaseMigrator>().MigrateAsync();
+    }
+
+    return !seedDemoUsers || await scope.ServiceProvider.GetRequiredService<DemoAccountSeeder>().SeedAsync() ? 0 : 1;
 }
 
 // Registered in every environment so Development also returns the sanitized 500.

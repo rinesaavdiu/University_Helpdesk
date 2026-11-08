@@ -1,0 +1,394 @@
+{
+  "info": {
+    "name": "University Helpdesk API",
+    "description": "Walks through login, categories, ticket CRUD, ownership, role rules, validation, pagination, and the status workflow. Run the folders in order: later requests use the tokens and ticket saved by earlier ones. Each run creates new tickets, so it can be repeated. Requires the demo accounts and an environment based on helpdesk.postman_environment.example.json.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK and healthy', () => {",
+            "    pm.response.to.have.status(200);",
+            "    pm.expect(pm.response.json().status).to.eql('Healthy');",
+            "});"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/health/live" }
+        },
+        {
+          "name": "Readiness",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK: the database is reachable', () => pm.response.to.have.status(200));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/health/ready" }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login as student 1",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK with a bearer token', () => {",
+            "    pm.response.to.have.status(200);",
+            "    const body = pm.response.json();",
+            "    pm.expect(body.tokenType).to.eql('Bearer');",
+            "    pm.expect(body.user.role).to.eql('Student');",
+            "    pm.collectionVariables.set('student1Token', body.accessToken);",
+            "    pm.collectionVariables.set('student1Id', body.user.id);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{student1Email}}\",\n  \"password\": \"{{student1Password}}\"\n}" }
+          }
+        },
+        {
+          "name": "Login as student 2",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('student2Token', pm.response.json().accessToken);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{student2Email}}\",\n  \"password\": \"{{student2Password}}\"\n}" }
+          }
+        },
+        {
+          "name": "Login as technician",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK as a technician', () => {",
+            "    pm.response.to.have.status(200);",
+            "    pm.expect(pm.response.json().user.role).to.eql('Technician');",
+            "});",
+            "pm.collectionVariables.set('technicianToken', pm.response.json().accessToken);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{technicianEmail}}\",\n  \"password\": \"{{technicianPassword}}\"\n}" }
+          }
+        },
+        {
+          "name": "Login with a wrong password",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('401 with a generic message', () => {",
+            "    pm.response.to.have.status(401);",
+            "    pm.expect(pm.response.json().detail).to.eql('Invalid email or password.');",
+            "});"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{student1Email}}\",\n  \"password\": \"not-the-password\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List active categories",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK, ordered by name', () => {",
+            "    pm.response.to.have.status(200);",
+            "    const names = pm.response.json().map(c => c.name);",
+            "    pm.expect(names).to.eql([...names].sort());",
+            "});"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/categories", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] } }
+        },
+        {
+          "name": "List categories without a token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/categories" }
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "Create a ticket",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created with Location and server-set fields', () => {",
+            "    pm.response.to.have.status(201);",
+            "    const ticket = pm.response.json();",
+            "    pm.expect(pm.response.headers.get('Location')).to.eql(`/tickets/${ticket.id}`);",
+            "    pm.expect(ticket.status).to.eql('Open');",
+            "    pm.expect(ticket.version).to.eql(1);",
+            "    pm.expect(ticket.studentId).to.eql(pm.collectionVariables.get('student1Id'));",
+            "    pm.collectionVariables.set('ticketId', ticket.id);",
+            "    pm.collectionVariables.set('ticketVersion', ticket.version);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/tickets",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"A-204\",\n  \"categoryId\": 3,\n  \"description\": \"The projector turns on but shows no image from the HDMI cable.\"\n}" }
+          }
+        },
+        {
+          "name": "Create with invalid fields",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 naming each invalid field', () => {",
+            "    pm.response.to.have.status(400);",
+            "    const errors = pm.response.json().errors;",
+            "    pm.expect(errors).to.have.property('room');",
+            "    pm.expect(errors).to.have.property('description');",
+            "});"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/tickets",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"\",\n  \"categoryId\": 3,\n  \"description\": \"short\"\n}" }
+          }
+        },
+        {
+          "name": "Create as a technician",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/tickets",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{technicianToken}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"A-204\",\n  \"categoryId\": 3,\n  \"description\": \"Technicians cannot report tickets.\"\n}" }
+          }
+        },
+        {
+          "name": "Get the ticket as its owner",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK', () => {",
+            "    pm.response.to.have.status(200);",
+            "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('ticketId'));",
+            "});"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/tickets/{{ticketId}}", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] } }
+        },
+        {
+          "name": "Get the ticket as another student",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404: another student\\'s ticket is not revealed', () => pm.response.to.have.status(404));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/tickets/{{ticketId}}", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student2Token}}" }] } }
+        },
+        {
+          "name": "List own tickets, first page",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK with a page of at most 5, newest first', () => {",
+            "    pm.response.to.have.status(200);",
+            "    const page = pm.response.json();",
+            "    pm.expect(page.page).to.eql(1);",
+            "    pm.expect(page.pageSize).to.eql(5);",
+            "    pm.expect(page.items.length).to.be.at.most(5);",
+            "    pm.expect(page.items[0].id).to.eql(pm.collectionVariables.get('ticketId'));",
+            "    const created = page.items.map(t => t.createdAt);",
+            "    pm.expect(created).to.eql([...created].sort().reverse());",
+            "});"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/tickets?page=1&pageSize=5&status=Open", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] } }
+        },
+        {
+          "name": "List with an invalid page size",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/tickets?pageSize=101", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] } }
+        },
+        {
+          "name": "Edit the ticket",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK and the version goes up', () => {",
+            "    pm.response.to.have.status(200);",
+            "    const ticket = pm.response.json();",
+            "    pm.expect(ticket.room).to.eql('A-206');",
+            "    pm.expect(ticket.version).to.eql(pm.collectionVariables.get('ticketVersion') + 1);",
+            "    pm.collectionVariables.set('ticketVersion', ticket.version);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"A-206\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        },
+        {
+          "name": "Edit with a stale version",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"A-207\",\n  \"version\": 1\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Status workflow",
+      "item": [
+        {
+          "name": "Skip straight to Resolved",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('409: only the next status is allowed', () => pm.response.to.have.status(409));"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/status",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{technicianToken}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Resolved\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        },
+        {
+          "name": "Change status as a student",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/status",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"InProgress\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        },
+        {
+          "name": "Start work (InProgress)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK and InProgress', () => {",
+            "    pm.response.to.have.status(200);",
+            "    pm.expect(pm.response.json().status).to.eql('InProgress');",
+            "    pm.collectionVariables.set('ticketVersion', pm.response.json().version);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/status",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{technicianToken}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"InProgress\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        },
+        {
+          "name": "Student edits a ticket in progress",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('409: the ticket is locked for the student', () => pm.response.to.have.status(409));"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"A-208\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        },
+        {
+          "name": "Resolve",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('200 OK, Resolved with resolvedAt', () => {",
+            "    pm.response.to.have.status(200);",
+            "    const ticket = pm.response.json();",
+            "    pm.expect(ticket.status).to.eql('Resolved');",
+            "    pm.expect(ticket.resolvedAt).to.be.a('string');",
+            "    pm.collectionVariables.set('ticketVersion', ticket.version);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/status",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{technicianToken}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Resolved\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        },
+        {
+          "name": "Change a resolved ticket",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('409: Resolved is final', () => pm.response.to.have.status(409));"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/tickets/{{ticketId}}/status",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{technicianToken}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Resolved\",\n  \"version\": {{ticketVersion}}\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete",
+      "item": [
+        {
+          "name": "Create a ticket to delete",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('201 Created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('deleteTicketId', pm.response.json().id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/tickets",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"room\": \"B-101\",\n  \"categoryId\": 4,\n  \"description\": \"The network socket by the door has no connection.\"\n}" }
+          }
+        },
+        {
+          "name": "Delete as another student",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ] } }],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/tickets/{{deleteTicketId}}", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student2Token}}" }] } }
+        },
+        {
+          "name": "Delete as the owner",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/tickets/{{deleteTicketId}}", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] } }
+        },
+        {
+          "name": "Get the deleted ticket",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/tickets/{{deleteTicketId}}", "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{student1Token}}" }] } }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "student1Token", "value": "" },
+    { "key": "student1Id", "value": "" },
+    { "key": "student2Token", "value": "" },
+    { "key": "technicianToken", "value": "" },
+    { "key": "ticketId", "value": "" },
+    { "key": "ticketVersion", "value": "" },
+    { "key": "deleteTicketId", "value": "" }
+  ]
+}

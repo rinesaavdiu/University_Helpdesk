@@ -23,6 +23,10 @@ public sealed class NotificationConsumer(
     private IConnection? _connection;
     private IChannel? _consumeChannel;
     private IChannel? _failedChannel;
+    private volatile bool _consuming;
+
+    /// <summary>True while the worker is connected to RabbitMQ and subscribed to the queue.</summary>
+    public bool IsConsuming => _consuming && _connection is { IsOpen: true } && _consumeChannel is { IsOpen: true };
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -52,6 +56,7 @@ public sealed class NotificationConsumer(
         var consumer = new AsyncEventingBasicConsumer(_consumeChannel);
         consumer.ReceivedAsync += (_, delivery) => HandleAsync(delivery, stoppingToken);
         await _consumeChannel.BasicConsumeAsync(settings.TicketResolvedQueue, autoAck: false, consumer, stoppingToken);
+        _consuming = true;
         logger.LogInformation("Consuming {Queue}.", settings.TicketResolvedQueue);
 
         try
@@ -258,6 +263,7 @@ public sealed class NotificationConsumer(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
+        _consuming = false;
         await base.StopAsync(cancellationToken);
         foreach (var disposable in new IAsyncDisposable?[] { _consumeChannel, _failedChannel, _connection })
         {

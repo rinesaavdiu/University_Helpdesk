@@ -24,6 +24,7 @@ Thumbs.db
 !.env.example
 
 # Local secret configuration
+*.postman_environment.json
 appsettings.*.local.json
 appsettings.Local.json
 secrets.json

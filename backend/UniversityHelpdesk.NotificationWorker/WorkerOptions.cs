@@ -50,6 +50,19 @@ public class SmtpOptions
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(10);
 }
 
+public class HealthOptions
+{
+    public const string SectionName = "Health";
+
+    /// <summary>
+    /// File rewritten every <see cref="Interval"/> while the worker is consuming, and deleted while
+    /// it is not, for container health checks. Empty disables it.
+    /// </summary>
+    public string FilePath { get; set; } = "";
+
+    public TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(10);
+}
+
 public class DeliveryOptions
 {
     public const string SectionName = "Delivery";

@@ -175,10 +175,11 @@ the message is redelivered and the student receives the email twice. The email's
 
 | Area               | Plan                                                                                                                                                       |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local development  | Docker Compose starts the Ticket API, Notification Worker, PostgreSQL, Redis, RabbitMQ, and Mailpit with one command.                                      |
+| Local development  | Docker Compose starts the Ticket API, Notification Worker, PostgreSQL, Redis, RabbitMQ, and Mailpit with one command. A one-off `db-init` container applies migrations and creates the demo accounts; the two API replicas start only after it succeeds, so they never race to change the schema. An nginx gateway load-balances requests between the replicas. Secrets come from environment variables in `.env`. |
 | Kubernetes         | The Ticket API runs as a Deployment with two replicas behind a Service, which load-balances requests between them. The worker runs as its own Deployment. |
 | CI/CD              | GitHub Actions builds the solution and runs the tests on every push and pull request, then verifies that the containers start and pass health checks.     |
-| Monitoring         | JSON console logs with a trace ID per request, liveness (`/health/live`) and readiness (`/health/ready`) endpoints for Kubernetes probes, and Prometheus request count, error, and latency metrics at `/metrics`. |
+| Monitoring         | JSON console logs with a trace ID per request, liveness (`/health/live`) and readiness (`/health/ready`) endpoints for Kubernetes probes, and Prometheus request count, error, and latency metrics at `/metrics`. The worker has no HTTP endpoint; it rewrites a health file every 10 seconds while it is consuming, and its container health check tests that the file is recent. |
+| Testing            | Unit and HTTP tests run without services. Integration tests call the API over HTTP against a dedicated `_test` database, and recovery checks simulate worker, SMTP, broker, and Redis outages with a TCP proxy. Both tag their data with a run ID and delete it afterwards. |
 
 The operations endpoints and metric names are listed in the API contract. Logs
 contain route templates, event IDs, and ticket IDs; they never contain
