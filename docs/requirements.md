@@ -109,12 +109,13 @@ inbox during local development.
 ## Nonfunctional requirements
 
 Each requirement states how it will be verified. Performance figures are
-targets; measured results are recorded in `benchmark-results.md`, and the
-results of every verification are in `verification-results.md`.
+targets; measured results are recorded in `benchmark-results.md`, the
+results of every verification are in `verification-results.md`, and the
+individual test cases are in `test-cases.md`.
 
 | ID       | Area            | Requirement                                                                                                                                  | Verification                                                                                         |
 | -------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| NFR-S1   | Security        | Every endpoint except `POST /auth/login` rejects requests without a valid JWT with `401`.                                                    | Integration tests call each protected endpoint without a token and with an expired or tampered token. |
+| NFR-S1   | Security        | Every ticket and category endpoint rejects requests without a valid JWT with `401`. Only `POST /auth/login` and the operations endpoints (`/health/live`, `/health/ready`, `/metrics`, and Swagger in Development) are anonymous; `/metrics` is not reachable from outside Compose or the cluster. | HTTP tests call each protected endpoint without a token and with an expired, tampered, or wrongly signed token. |
 | NFR-S2   | Security        | Role and ownership rules from the API contract are enforced on the server.                                                                    | Integration tests cover each endpoint with the wrong role (`403`) and another student's ticket (`404`). |
 | NFR-S3   | Security        | Passwords are stored only as salted, adaptive hashes. Secrets (JWT signing key, database passwords) come from configuration, not source code. | Code review: accounts are hashed with ASP.NET Core Identity's `PasswordHasher`; integration tests log in against stored hashes; review that no secrets are committed and `.env` files are ignored. |
 | NFR-S4   | Security        | Error responses for unexpected failures contain no stack traces or internal details, only a generic message and a trace ID.                  | HTTP test forces an unhandled exception through a test-only route and inspects the response body.    |
@@ -125,5 +126,5 @@ results of every verification are in `verification-results.md`.
 | NFR-R3   | Reliability     | Concurrent conflicting edits or status changes do not overwrite each other; the losing request receives `409`.                               | Integration test sends two updates with the same version and expects one `200` and one `409`.        |
 | NFR-R4   | Reliability     | The API exposes liveness and readiness health checks.                                                                                        | Health checks are called in tests and used by the Compose health checks and Kubernetes probes.       |
 | NFR-M1   | Maintainability | Code is separated into HTTP, business logic, and persistence layers as described in the design.                                             | Code review against `design.md`.                                                                     |
-| NFR-M2   | Maintainability | Automated tests run in GitHub Actions on every push and pull request, and the build fails on any test failure.                              | `.github/workflows/ci.yml` and its run history.                                                      |
-| NFR-M3   | Maintainability | The full local environment starts with a single Docker Compose command.                                                                       | Documented command is run on a clean machine and the health checks pass.                             |
+| NFR-M2   | Maintainability | Automated tests run in GitHub Actions on every push to `main` and every pull request, and the run fails on any failing test it executes. Hosted CI runs the unit and HTTP tests and a Kubernetes deployment with a smoke test; the integration tests and recovery checks need services and run locally before pushing. | `.github/workflows/ci.yml` and its run history; local results in `verification-results.md`. |
+| NFR-M3   | Maintainability | The full local environment starts with a single Docker Compose command.                                                                       | The documented command is run from a clean, extracted copy of the submission package and the health checks pass. |

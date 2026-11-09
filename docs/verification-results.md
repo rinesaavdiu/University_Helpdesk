@@ -3,7 +3,8 @@
 This document records the checks that were actually run against the University
 Helpdesk API, what each one was expected to show, and what it showed. The
 requirements are in [`requirements.md`](requirements.md); the full benchmark
-tables are in [`benchmark-results.md`](benchmark-results.md).
+tables are in [`benchmark-results.md`](benchmark-results.md), and the individual
+test cases with their inputs and results are in [`test-cases.md`](test-cases.md).
 
 All local checks ran on one laptop: Intel Core i7-7700HQ (4 cores, 8 threads),
 15.8 GB RAM, Windows 10 22H2 (build 19045), with Docker Engine 29.9.3, Docker
@@ -15,12 +16,14 @@ WSL 2 (Ubuntu 22.04). Clients on Windows used .NET SDK 10 (runtime 10.0.14).
 | Area | Expected | Actual | Date |
 | ---- | -------- | ------ | ---- |
 | Ordinary tests (no external services) | All pass; service-backed tests skip | 100 passed, 22 skipped, 0 failed | 9 Nov 2026 |
-| HTTP integration tests (Compose PostgreSQL `helpdesk_test`) | All pass | 24 of 24 passed | 8 Nov 2026 |
+| HTTP integration tests (a dedicated `helpdesk_test` database) | All pass | 24 of 24 passed, against Compose PostgreSQL and again against a local PostgreSQL 18 instance | 8 and 9 Nov 2026 |
 | Recovery checks (Compose services) | All pass | 5 of 5 passed | 8 Nov 2026 |
 | Postman collection (Newman, through the Compose gateway) | All requests and assertions pass | 27 of 27 passed | 8 Nov 2026 |
 | Compose deployment | Healthy services, email delivered, data persists | Met; see below | 8 Nov 2026 |
 | Kubernetes deployment (local kind cluster) | Ordered start-up, end-to-end flow, data persists | Met; see below | 8 Nov 2026 |
-| GitHub Actions | Both jobs pass on push to `main` | 2 of 2 runs succeeded | 9 Nov 2026 |
+| Local HTTPS (`--launch-profile https`) | HTTPS served, HTTP redirected | Met with an untrusted development certificate; see TC-34 | 9 Nov 2026 |
+| GitHub Actions | Both jobs pass on push to `main` | 4 of 4 runs succeeded | 9 Nov 2026 |
+| Clean, extracted submission package starts and passes its checks (NFR-M3) | Health checks pass from the extracted copy | Not yet run | Open |
 | NFR-P1: `GET /tickets` p95 under 300 ms | Under 300 ms | 76.5 to 133.0 ms over 7 runs | 8 and 9 Nov 2026 |
 | Category cache speedup | Warm reads faster than cold reads | Not demonstrated for this workload | 8 Nov 2026 |
 
@@ -42,7 +45,11 @@ route, which contains no exception details (NFR-S4).
 
 **Integration tests.** With `HELPDESK_TEST_DATABASE` pointing at the
 `helpdesk_test` database that the Compose init script creates, the 24 tests
-selected by `--filter "FullyQualifiedName~Integration"` passed. They cover login
+selected by `--filter "FullyQualifiedName~Integration"` passed on 8 November.
+On 9 November, the whole suite ran again on commit `4804f47` against a
+`helpdesk_test` database on a local PostgreSQL 18 instance: 110 of 110 API
+tests passed, including the same 24. Each case is listed in
+[`test-cases.md`](test-cases.md). They cover login
 against stored hashes (NFR-S3), role restrictions and another student's ticket
 (NFR-S2), the ticket lifecycle and status workflow, and concurrent edits and
 resolutions where only one request succeeds and the other receives `409`
@@ -98,14 +105,16 @@ replaced with `***`.
 
 ## GitHub Actions
 
-Both runs of [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) were
-triggered by a push to `main`, ran on `ubuntu-24.04`, and succeeded on the
+Every run of [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) so far
+was triggered by a push to `main`, ran on `ubuntu-24.04`, and succeeded on the
 first attempt. Times are UTC on 9 November 2026.
 
 | Run | Tested commit | Duration | Build and test | Kubernetes smoke test |
 | --- | ------------- | -------- | -------------- | --------------------- |
 | [42689715455](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42689715455) | `f4875fb8c0c5d86f50756936cc0b34eb739d8061` | 20:06:18 to 20:09:32 | Passed in 55 s | Passed in 2 min 7 s |
 | [42690701136](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42690701136) | `da59588be70216e07f3f2a0f2457c178f9932081` | 20:12:22 to 20:15:10 | Passed in 32 s | Passed in 2 min 10 s |
+| [42694031970](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42694031970) | `4bf38b0c67b753f0c0313a888a136e223d301831` | 20:33:07 to 20:35:44 | Passed | Passed |
+| [42696574964](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42696574964) | `4804f4750f8934fe9b4e9f92c8d1cc681b6f2db5` | 20:49:12 to 20:52:11 | Passed | Passed |
 
 In the second run, the Kubernetes job built the images in 29 s, created the
 kind cluster in 40 s, deployed in 46 s (including the `db-init` Job and the
@@ -186,7 +195,8 @@ not from password hashing in the API. The README's benchmark command now passes
 
 - **Integration and recovery tests are not run in CI.** GitHub Actions runs
   only the ordinary suite and the Kubernetes smoke test; the 24 integration
-  tests and 5 recovery checks were run locally against Compose.
+  tests and 5 recovery checks were run locally (against Compose on 8 November,
+  and the integration tests again against a local PostgreSQL on 9 November).
 - **One machine.** The benchmark, the API, and every dependency shared one
   4-core laptop, and results vary by about 30% between runs. They show that
   NFR-P1 is met here, not how the system scales.
@@ -196,18 +206,29 @@ not from password hashing in the API. The README's benchmark command now passes
 - **The 9 November benchmark runs skipped the cold category scenario.** After
   WSL restarted, Windows could not reach the Redis port 56379 for over a minute
   while the other ports worked, so those runs were started without `--redis`.
-- **Compose infrastructure does not restart on its own.** When the WSL VM
-  stopped and started again on 9 November, the API, gateway, and worker
-  restarted (`restart: unless-stopped`), but PostgreSQL, RabbitMQ, Redis, and
-  Mailpit stayed exited, so the API and worker reported unhealthy until
-  `docker compose up -d` was run again.
 - **Not production configuration.** Both deployments run with
-  `ASPNETCORE_ENVIRONMENT=Development`, without TLS, and with demo accounts. No
-  Prometheus server is deployed; metrics were read directly from each pod.
+  `ASPNETCORE_ENVIRONMENT=Development`, over plain HTTP, and with demo
+  accounts. HTTPS was checked only with `dotnet run` and an untrusted
+  development certificate; TLS for a published deployment is designed but not
+  implemented or tested (README, "HTTPS"). No Prometheus server is deployed;
+  metrics were read directly from each pod.
 - **Known log line.** The API image logs a harmless `libgssapi_krb5.so.2`
   loading error from Npgsql on Alpine.
 - **Not automated.** Duplicate emails after a worker crash between sending and
   acknowledging are possible by design (at-least-once delivery) but are not
-  covered by a test. NFR-M3 was checked on this machine, not on a clean one.
+  covered by a test, and neither is SQL injection-style input (all queries are
+  parameterized by EF Core).
+- **Clean package not yet verified.** NFR-M3 was checked on this machine, not
+  from a clean, extracted copy of the submission package. That check stays
+  open until the packaging step.
 - **Frontend.** A web frontend is planned and was not tested; all checks used
   the API directly.
+
+## Follow-up findings
+
+These were found during verification and are not fixed yet:
+
+| Finding | Evidence | Suggested fix |
+| ------- | -------- | ------------- |
+| Compose infrastructure does not restart on its own | When the WSL VM stopped and started again on 9 November, the API, gateway, and worker restarted (`restart: unless-stopped`), but PostgreSQL, RabbitMQ, Redis, and Mailpit stayed exited, so the API and worker reported unhealthy until `docker compose up -d` was run again | Add `restart: unless-stopped` to those four services in `compose.yaml` |
+| The benchmark's default address is slow on Windows | `--base-url` defaults to `http://localhost:58080`; each new connection to `localhost` took about 2 s longer than to `127.0.0.1` (see Performance) | Change the default in `BenchmarkOptions.cs` to `http://127.0.0.1:58080`; the README command already passes it |

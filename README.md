@@ -245,6 +245,47 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
    Swagger is at `http://localhost:5276/swagger`, and Mailpit at
    `http://localhost:58025`.
 
+## HTTPS
+
+**Local HTTPS with `dotnet run`.** The `https` launch profile serves the API on
+`https://localhost:7052` and `http://localhost:5276`, and redirects HTTP
+requests to HTTPS. It uses the .NET development certificate for `localhost`.
+Create and trust it once (Windows asks for confirmation), then start the API
+as in the steps above, with the `https` profile:
+
+```powershell
+dotnet dev-certs https --trust
+dotnet run --project backend/UniversityHelpdesk.Api --launch-profile https
+```
+
+Check it from a second terminal:
+
+```powershell
+curl.exe -s -o NUL -w "%{http_code}`n" https://localhost:7052/health/ready
+curl.exe -s -o NUL -w "%{http_code} %{redirect_url}`n" http://localhost:5276/tickets
+```
+
+The first command prints `200` once the certificate is trusted. The second
+prints `307 https://localhost:7052/tickets`. Swagger is at
+`https://localhost:7052/swagger`. On 9 November 2026 this was checked with an
+untrusted development certificate: the redirect and the HTTPS endpoints
+worked, and clients that validate certificates rejected the connection until
+the certificate is trusted (see TC-34 in `docs/test-cases.md`).
+
+**Docker Compose and kind use plain HTTP.** These setups are for local
+demonstrations: the Compose ports are bound to `127.0.0.1` only, and the kind
+API is reached through `kubectl port-forward`. Tokens and passwords therefore
+travel unencrypted, but only over the loopback interface of your own machine.
+The containers listen on HTTP only, so the API does not redirect there.
+
+**Published deployment (not implemented or tested).** A deployment reachable
+by other machines must use HTTPS. The intended approach is to terminate TLS in
+front of the API, at the gateway or a Kubernetes Ingress, with a certificate
+from a certificate authority (for example Let's Encrypt through cert-manager),
+to redirect HTTP to HTTPS and send HSTS headers there, and to have the API
+trust the `X-Forwarded-Proto` header from that proxy only. None of this is part
+of the repository yet.
+
 ## Configuration
 
 Both programs read standard .NET configuration: `appsettings.json`, then user
@@ -300,9 +341,18 @@ PostgreSQL volume is first created, for the integration tests.
 
 ## API overview and permissions
 
-All endpoints except login need `Authorization: Bearer <accessToken>` from
-`POST /auth/login`. The full contract, with request and response bodies and
+Every API endpoint except login needs `Authorization: Bearer <accessToken>`
+from `POST /auth/login`. The full contract, with request and response bodies and
 error codes, is in `docs/api-contract.md`.
+
+These routes need no token:
+
+| Route | Purpose | Exposure |
+| ----- | ------- | -------- |
+| `POST /auth/login` | Sign-in | Public |
+| `GET /health/live`, `GET /health/ready` | Probes | Reachable through the Compose gateway; inside the cluster in Kubernetes |
+| `GET /metrics` | Prometheus metrics | Blocked at the Compose gateway (`404`); the Kubernetes Service is not exposed outside the cluster |
+| `/swagger`, `/swagger/v1/swagger.json` | API documentation | Only in the Development environment, which Compose, kind, and `dotnet run` use |
 
 | Endpoint | Student | Technician |
 | -------- | ------- | ---------- |
@@ -459,9 +509,10 @@ is in `docs/verification-results.md`.
 
 ### Continuous integration
 
-`.github/workflows/ci.yml` runs on every push to `main`, on pull requests, and
-manually from the **Actions** tab (**CI → Run workflow**, or
-`gh workflow run ci.yml --ref main`). It has two jobs:
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests to any
+branch, and manually from the **Actions** tab (**CI → Run workflow**, or
+`gh workflow run ci.yml --ref main`). Pushes to other branches do not trigger
+it. It has two jobs:
 
 1. **Build and test** restores and builds the solution in Release and runs
    `dotnet test`. The test results (`.trx` files) are uploaded as the
@@ -474,6 +525,20 @@ manually from the **Actions** tab (**CI → Run workflow**, or
    must reach the student in Mailpit. The namespace's resources, events, and
    container logs are uploaded as the `kubernetes-diagnostics` artifact, with
    every credential value replaced by `***`.
+
+Which suites run where:
+
+| Suite | Hosted CI | Locally |
+| ----- | --------- | ------- |
+| Unit and HTTP tests (no services) | Yes | `dotnet test` |
+| Integration tests (24, need PostgreSQL) | No: skipped, because `HELPDESK_TEST_DATABASE` is not set | With `HELPDESK_TEST_DATABASE`, as above |
+| Recovery checks (5, need every service) | No: skipped | With the `HELPDESK_TEST_*` variables, as above |
+| Postman collection | No | `npx newman run`, as above |
+| Kubernetes deployment and smoke test | Yes | The scripts below |
+
+A CI run therefore fails on any failing unit or HTTP test, or a failed
+deployment or smoke test, but not on the integration tests or recovery checks;
+run those before pushing. Per-case results are in `docs/test-cases.md`.
 
 The same scripts run locally in a Linux or WSL shell with Docker, kind,
 kubectl, `curl`, `jq`, and `openssl`. `new-kind-secrets.sh` refuses to
