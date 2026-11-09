@@ -38,6 +38,12 @@ export type UpdateTicketInput = Partial<CreateTicketInput> & {
   version: number
 }
 
+/** `status` must be the next status in the workflow. `version` must be the ticket's current version. */
+export type ChangeStatusInput = {
+  status: TicketStatus
+  version: number
+}
+
 export type ListTicketsParams = {
   status?: TicketStatus
   page?: number

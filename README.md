@@ -10,10 +10,11 @@ resolved, the Notification Worker emails the student.
 
 This repository contains the backend, which consists of the Ticket API and the
 Notification Worker, and a React web frontend for students and technicians in
-`frontend/`. The frontend is still being built: sign-in, the student screens,
-and the technician ticket queue are done, and technician status changes are
-not. Until they are, change a ticket's status with the Swagger UI or the
-Postman collection described below.
+`frontend/`. Students sign in to report and follow their tickets, and
+technicians to work through the queue and move tickets to In progress and
+Resolved. The frontend is not yet served by Docker Compose; until it is, run
+it with the development server (see "Run the frontend"), or use the Swagger
+UI or the Postman collection described below.
 
 The commands below are for Windows PowerShell and run from the repository root.
 
@@ -258,8 +259,8 @@ ticket details with edit and delete for open tickets, and the issue report
 form, at `/student/tickets`, `/student/tickets/{id}`,
 `/student/tickets/{id}/edit`, and `/student/tickets/new`), and the
 technician ticket queue (every student's tickets with a status filter and
-pages, and ticket details, at `/technician/tickets` and
-`/technician/tickets/{id}`). Sign in with one of the demo accounts created
+pages, and ticket details with **Start work** and **Resolve ticket**, at
+`/technician/tickets` and `/technician/tickets/{id}`). Sign in with one of the demo accounts created
 when the system starts (see "Run everything with Docker Compose" above). Run the
 commands from the `frontend` folder:
 

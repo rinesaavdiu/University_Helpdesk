@@ -5,11 +5,10 @@ browser against the real API (see the student walkthrough in
 [`demo-runbook.md`](demo-runbook.md#student-screens-in-the-browser)). They do
 not depend on sign-in directly: they get every ticket and category through one
 small interface, and the code that sends requests is in one file. Sign-in,
-the session, the role guards, and the technician ticket queue use the same
-file.
+the session, the role guards, and the technician ticket queue and status
+actions use the same file.
 
-Still to build: technician status changes and serving the frontend from
-Docker Compose.
+Still to build: serving the frontend from Docker Compose.
 
 ## Student routes
 
@@ -45,7 +44,14 @@ sign-in open.
 | Path | Page | What it does |
 | ---- | ---- | ------------ |
 | `/technician/tickets` | `TechnicianTicketsPage` | Every student's tickets, newest first, 10 per page, with the reporting student's ID on each card. `?status=` and `?page=` are kept in the URL. |
-| `/technician/tickets/:ticketId` | `TechnicianTicketDetailPage` | One ticket, including the reporting student. The back link returns to the same filter and page. |
+| `/technician/tickets/:ticketId` | `TechnicianTicketDetailPage` | One ticket, including the reporting student, and its one allowed status action: **Start work** for an `Open` ticket, **Resolve ticket** for an `InProgress` ticket, none for a `Resolved` ticket. The back link returns to the same filter and page. |
+
+A status action sends the ticket's current `version`. While the request runs,
+the button is disabled and says "Starting…" or "Resolving…", and a second
+click sends nothing. On success the page shows the returned ticket and a
+notice. On `409` (another technician changed the ticket first) nothing is
+saved: the page says so, reloads the ticket, and shows the action for its
+new status, so the technician decides whether to continue.
 
 `frontend/src/technicianRoutes.tsx` exports them as `technicianRoutes`, which
 `router.tsx` wraps in `<RequireRole role="Technician" />`; links use
@@ -108,6 +114,7 @@ message, and a `401` becomes "Sign in required".
 interface TechnicianTicketApi {
   listTickets(params: ListTicketsParams, signal?: AbortSignal): Promise<TicketPage>
   getTicket(id: number, signal?: AbortSignal): Promise<Ticket>
+  changeStatus(id: number, input: ChangeStatusInput): Promise<Ticket> // { status, version }
 }
 ```
 

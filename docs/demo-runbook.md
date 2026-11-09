@@ -11,11 +11,11 @@ The demo uses the Docker Compose system and takes about 8 minutes. The
 before the defense and what was not.
 
 > **React frontend.** React sign-in, the student screens, and the technician
-> ticket queue are built; see
-> [Student screens in the browser](#student-screens-in-the-browser).
-> Technicians cannot change a ticket's status in React yet, so the main demo
-> below still uses Swagger, and so does the technician part of the student
-> walkthrough.
+> queue with status actions are built; see
+> [Student screens in the browser](#student-screens-in-the-browser). The
+> full React walkthrough will be added once the frontend is served by Docker
+> Compose; until then, the main demo below uses Swagger, and so does the
+> technician part of the student walkthrough.
 
 ## Before the defense
 
@@ -201,8 +201,8 @@ change, and `PublishedAt` was set once RabbitMQ confirmed the event.
 ## Student screens in the browser
 
 The same story with the React student screens instead of the student's
-Swagger window. Technicians cannot change a ticket's status in React yet, so
-the technician still uses Swagger for that. This needs the frontend development server (see "Run the
+Swagger window. The technician part still uses Swagger; technicians can also
+use **Start work** and **Resolve ticket** on the React ticket page. This needs the frontend development server (see "Run the
 frontend" in the README); the routes, the session, and the API client are
 described in [`frontend-handoff.md`](frontend-handoff.md).
 
@@ -410,9 +410,10 @@ in-progress ticket says "A technician is working on this ticket."
 - The whole student walkthrough with React sign-in instead of the harness.
   Sign-in, the role guards, session expiry, and sign-out were checked on
   their own against the same kind of stack; the full run waits for the
-  technician status changes.
-- Technician status changes in React, which are not built yet. The
-  technician ticket list and details were checked on their own.
+  frontend to be served by Docker Compose.
+- The technician side in React as part of a full run. The ticket list,
+  details, both status changes, and a stale update from a second technician
+  session were checked on their own against the same kind of stack.
 - The clicks in Swagger with a real login, **Authorize**, and two browser
   windows. The requests were the same, but they were sent by a script so that
   the passwords and tokens never appeared on screen or in any log. The team
