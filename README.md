@@ -510,6 +510,12 @@ logged once with its route template, status code, duration, and trace ID.
 Notification logs include the event ID. Logs never contain credentials, tokens,
 or ticket descriptions. See `docs/api-contract.md` for the metric names.
 
+## Sources and contributions
+
+`docs/sources-and-contributions.md` lists the libraries, images, and tools the
+project uses, the references it draws on, how AI tools were used, and each
+group member's contributions.
+
 ## Directory guide
 
 | Directory        | Purpose                                                       |
