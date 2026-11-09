@@ -4,9 +4,9 @@ import { AppLayout } from './layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RouteErrorPage } from './pages/RouteErrorPage'
-import { TechnicianTicketsPage } from './pages/TechnicianTicketsPage'
 import { paths } from './routes'
 import { studentRoutes } from './studentRoutes'
+import { technicianRoutes } from './technicianRoutes'
 
 export const router = createBrowserRouter([
   {
@@ -19,10 +19,7 @@ export const router = createBrowserRouter([
           { index: true, element: <HomeRedirect /> },
           { path: paths.login, element: <LoginPage /> },
           { element: <RequireRole role="Student" />, children: studentRoutes },
-          {
-            element: <RequireRole role="Technician" />,
-            children: [{ path: paths.technicianTickets, element: <TechnicianTicketsPage /> }],
-          },
+          { element: <RequireRole role="Technician" />, children: technicianRoutes },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

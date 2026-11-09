@@ -1,14 +1,15 @@
-# Frontend handoff: student screens and sign-in
+# Frontend handoff: routes, sign-in, and the API client
 
 The student screens in `frontend/` are finished and were checked in the
 browser against the real API (see the student walkthrough in
 [`demo-runbook.md`](demo-runbook.md#student-screens-in-the-browser)). They do
 not depend on sign-in directly: they get every ticket and category through one
 small interface, and the code that sends requests is in one file. Sign-in,
-the session, and the role guards are now connected to that file.
+the session, the role guards, and the technician ticket queue use the same
+file.
 
-Still to build: the technician dashboard and serving the frontend from Docker
-Compose.
+Still to build: technician status changes and serving the frontend from
+Docker Compose.
 
 ## Student routes
 
@@ -38,6 +39,23 @@ signed-in user with the other role sees "Not allowed" with a link to their own
 tickets. The technician routes use the same guard with `role="Technician"`.
 `homePathByRole` in `routes.ts` gives each role's start page, which `/` and
 sign-in open.
+
+## Technician routes
+
+| Path | Page | What it does |
+| ---- | ---- | ------------ |
+| `/technician/tickets` | `TechnicianTicketsPage` | Every student's tickets, newest first, 10 per page, with the reporting student's ID on each card. `?status=` and `?page=` are kept in the URL. |
+| `/technician/tickets/:ticketId` | `TechnicianTicketDetailPage` | One ticket, including the reporting student. The back link returns to the same filter and page. |
+
+`frontend/src/technicianRoutes.tsx` exports them as `technicianRoutes`, which
+`router.tsx` wraps in `<RequireRole role="Technician" />`; links use
+`technicianTicketPath(id)`. The API returns only the student's ID with a
+ticket, not their name or email, so the screens show "Student #1".
+
+Both roles share these pieces: `TicketList` (with `showStudent` for
+technicians), `TicketDetails` (the ticket panel, also with `showStudent`),
+`StatusFilter`, `Pagination`, the loading, empty, and error states, and the
+URL helpers in `frontend/src/ticketListSearch.ts`.
 
 ## Session
 
@@ -81,6 +99,21 @@ it. Failed requests throw `ApiError` (`src/api/errors.ts`) with the HTTP
 status and the problem details; `describeError` turns it into a title and
 message, and a `401` becomes "Sign in required".
 
+## `TechnicianTicketApi`
+
+`frontend/src/api/technicianTicketApi.ts`, supplied by
+`TechnicianTicketApiProvider` and read with `useTechnicianTicketApi()`:
+
+```ts
+interface TechnicianTicketApi {
+  listTickets(params: ListTicketsParams, signal?: AbortSignal): Promise<TicketPage>
+  getTicket(id: number, signal?: AbortSignal): Promise<Ticket>
+}
+```
+
+Both ticket interfaces build the `GET /tickets` query with `ticketListPath`
+(`frontend/src/api/ticketQuery.ts`).
+
 ## The integration seam: `ApiRequest`
 
 All requests go through one function type in `frontend/src/api/http.ts`:
@@ -100,12 +133,11 @@ const fetchRequest = createFetchRequest({
 })
 export const apiRequest: ApiRequest = async (path, init) => { /* fetchRequest, then endSession('expired') on 401 */ }
 export const studentTicketApi = createStudentTicketApi(apiRequest)
+export const technicianTicketApi = createTechnicianTicketApi(apiRequest)
 ```
 
 The sign-in page calls `login(apiRequest, email, password)` from
-`frontend/src/api/authApi.ts`; with no session it sends no token. The student
-pages did not change. The technician dashboard should reuse `apiRequest` and
-`requestJson` with its own interface in the same style.
+`frontend/src/api/authApi.ts`; with no session it sends no token.
 
 ## API address
 

@@ -10,9 +10,10 @@ resolved, the Notification Worker emails the student.
 
 This repository contains the backend, which consists of the Ticket API and the
 Notification Worker, and a React web frontend for students and technicians in
-`frontend/`. The frontend is still being built: sign-in and the student
-screens are done, and the technician screens are not. Until they are, use the
-Swagger UI or the Postman collection described below.
+`frontend/`. The frontend is still being built: sign-in, the student screens,
+and the technician ticket queue are done, and technician status changes are
+not. Until they are, change a ticket's status with the Swagger UI or the
+Postman collection described below.
 
 The commands below are for Windows PowerShell and run from the repository root.
 
@@ -255,8 +256,10 @@ The frontend in `frontend/` is a React and TypeScript app built with Vite.
 So far it has sign-in at `/login`, the student screens (the ticket list,
 ticket details with edit and delete for open tickets, and the issue report
 form, at `/student/tickets`, `/student/tickets/{id}`,
-`/student/tickets/{id}/edit`, and `/student/tickets/new`), and a placeholder
-for `/technician/tickets`. Sign in with one of the demo accounts created
+`/student/tickets/{id}/edit`, and `/student/tickets/new`), and the
+technician ticket queue (every student's tickets with a status filter and
+pages, and ticket details, at `/technician/tickets` and
+`/technician/tickets/{id}`). Sign in with one of the demo accounts created
 when the system starts (see "Run everything with Docker Compose" above). Run the
 commands from the `frontend` folder:
 

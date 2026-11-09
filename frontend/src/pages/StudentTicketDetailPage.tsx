@@ -3,10 +3,8 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ApiError, describeError, isApiError } from '../api/errors'
 import { useStudentTicketApi } from '../api/StudentTicketApiContext'
 import type { Ticket } from '../api/types'
-import { PageHeader } from '../components/PageHeader'
-import { StatusBadge } from '../components/StatusBadge'
 import { ErrorState, LoadingState } from '../components/StatusStates'
-import { formatDateTime } from '../format'
+import { TicketDetails } from '../components/TicketDetails'
 import { useApiData } from '../hooks/useApiData'
 import { parseTicketId, paths, studentEditTicketPath } from '../routes'
 
@@ -143,47 +141,5 @@ export function StudentTicketDetailPage() {
       </Link>
       {renderContent()}
     </section>
-  )
-}
-
-function TicketDetails({ ticket }: { ticket: Ticket }) {
-  return (
-    <>
-      <PageHeader title={`Ticket #${ticket.id}`} actions={<StatusBadge status={ticket.status} />} />
-      <div className="panel">
-        <dl className="details">
-          <div>
-            <dt>Room</dt>
-            <dd>{ticket.room}</dd>
-          </div>
-          <div>
-            <dt>Category</dt>
-            <dd>{ticket.category.name}</dd>
-          </div>
-          <div>
-            <dt>Reported</dt>
-            <dd>
-              <time dateTime={ticket.createdAt}>{formatDateTime(ticket.createdAt)}</time>
-            </dd>
-          </div>
-          <div>
-            <dt>Last updated</dt>
-            <dd>
-              <time dateTime={ticket.updatedAt}>{formatDateTime(ticket.updatedAt)}</time>
-            </dd>
-          </div>
-          {ticket.resolvedAt && (
-            <div>
-              <dt>Resolved</dt>
-              <dd>
-                <time dateTime={ticket.resolvedAt}>{formatDateTime(ticket.resolvedAt)}</time>
-              </dd>
-            </div>
-          )}
-        </dl>
-        <h2 className="panel__heading">Description</h2>
-        <p className="description">{ticket.description}</p>
-      </div>
-    </>
   )
 }

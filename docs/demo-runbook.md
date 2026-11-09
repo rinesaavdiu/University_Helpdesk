@@ -10,10 +10,12 @@ The demo uses the Docker Compose system and takes about 8 minutes. The
 [rehearsal record](#rehearsal-record) at the end lists what was actually run
 before the defense and what was not.
 
-> **React frontend.** React sign-in and the student screens are built; see
-> [Student screens in the browser](#student-screens-in-the-browser). The
-> technician screens are not built yet, so the main demo below still uses
-> Swagger, and so does the technician part of the student walkthrough.
+> **React frontend.** React sign-in, the student screens, and the technician
+> ticket queue are built; see
+> [Student screens in the browser](#student-screens-in-the-browser).
+> Technicians cannot change a ticket's status in React yet, so the main demo
+> below still uses Swagger, and so does the technician part of the student
+> walkthrough.
 
 ## Before the defense
 
@@ -199,8 +201,8 @@ change, and `PublishedAt` was set once RabbitMQ confirmed the event.
 ## Student screens in the browser
 
 The same story with the React student screens instead of the student's
-Swagger window. The technician screens are not built yet, so the technician
-still uses Swagger. This needs the frontend development server (see "Run the
+Swagger window. Technicians cannot change a ticket's status in React yet, so
+the technician still uses Swagger for that. This needs the frontend development server (see "Run the
 frontend" in the README); the routes, the session, and the API client are
 described in [`frontend-handoff.md`](frontend-handoff.md).
 
@@ -408,8 +410,9 @@ in-progress ticket says "A technician is working on this ticket."
 - The whole student walkthrough with React sign-in instead of the harness.
   Sign-in, the role guards, session expiry, and sign-out were checked on
   their own against the same kind of stack; the full run waits for the
-  technician screens.
-- The technician side in React, which is not built yet.
+  technician status changes.
+- Technician status changes in React, which are not built yet. The
+  technician ticket list and details were checked on their own.
 - The clicks in Swagger with a real login, **Authorize**, and two browser
   windows. The requests were the same, but they were sent by a script so that
   the passwords and tokens never appeared on screen or in any log. The team

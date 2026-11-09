@@ -7,6 +7,7 @@ export const paths = {
   studentTicket: '/student/tickets/:ticketId',
   studentEditTicket: '/student/tickets/:ticketId/edit',
   technicianTickets: '/technician/tickets',
+  technicianTicket: '/technician/tickets/:ticketId',
 } as const
 
 export function studentTicketPath(id: number): string {
@@ -15,6 +16,10 @@ export function studentTicketPath(id: number): string {
 
 export function studentEditTicketPath(id: number): string {
   return `/student/tickets/${id}/edit`
+}
+
+export function technicianTicketPath(id: number): string {
+  return `/technician/tickets/${id}`
 }
 
 /** Reads the `:ticketId` route parameter; returns null when it is not a positive integer. */

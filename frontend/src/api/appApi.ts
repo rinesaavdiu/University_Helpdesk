@@ -2,6 +2,7 @@ import { endSession, getSession } from '../auth/session'
 import { apiBaseUrl } from '../config'
 import { createFetchRequest, type ApiRequest } from './http'
 import { createStudentTicketApi } from './studentTicketApi'
+import { createTechnicianTicketApi } from './technicianTicketApi'
 
 const fetchRequest = createFetchRequest({
   baseUrl: apiBaseUrl,
@@ -19,3 +20,5 @@ export const apiRequest: ApiRequest = async (path, init) => {
 }
 
 export const studentTicketApi = createStudentTicketApi(apiRequest)
+
+export const technicianTicketApi = createTechnicianTicketApi(apiRequest)

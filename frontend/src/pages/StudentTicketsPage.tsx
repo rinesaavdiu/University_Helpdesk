@@ -1,35 +1,19 @@
-import { useCallback, useId } from 'react'
+import { useCallback } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
 import { describeError } from '../api/errors'
 import { useStudentTicketApi } from '../api/StudentTicketApiContext'
-import { ticketStatuses, type TicketStatus } from '../api/types'
 import { PageHeader } from '../components/PageHeader'
 import { Pagination } from '../components/Pagination'
 import { statusLabels } from '../components/StatusBadge'
+import { StatusFilter } from '../components/StatusFilter'
 import { EmptyState, ErrorState, LoadingState } from '../components/StatusStates'
 import { TicketList } from '../components/TicketList'
 import { useApiData } from '../hooks/useApiData'
 import { paths, studentTicketPath } from '../routes'
+import { listSearch, parsePage, parseStatus } from '../ticketListSearch'
 import type { StudentTicketLocationState } from './StudentTicketDetailPage'
 
 const pageSize = 10
-
-function parseStatus(value: string | null): TicketStatus | undefined {
-  return ticketStatuses.find((status) => status === value)
-}
-
-function parsePage(value: string | null): number {
-  const page = Number(value)
-  return Number.isInteger(page) && page >= 1 ? page : 1
-}
-
-function listSearch(status: TicketStatus | undefined, page: number): string {
-  const params = new URLSearchParams()
-  if (status) params.set('status', status)
-  if (page > 1) params.set('page', String(page))
-  const search = params.toString()
-  return search ? `?${search}` : ''
-}
 
 export function StudentTicketsPage() {
   const api = useStudentTicketApi()
@@ -37,7 +21,6 @@ export function StudentTicketsPage() {
   const notice = (useLocation().state as StudentTicketLocationState | null)?.notice
   const status = parseStatus(searchParams.get('status'))
   const page = parsePage(searchParams.get('page'))
-  const statusFilterId = useId()
 
   const load = useCallback(
     (signal: AbortSignal) => api.listTickets({ status, page, pageSize }, signal),
@@ -123,25 +106,7 @@ export function StudentTicketsPage() {
           {notice}
         </p>
       )}
-      <div className="toolbar">
-        <label htmlFor={statusFilterId}>Status</label>
-        <select
-          id={statusFilterId}
-          className="select"
-          value={status ?? ''}
-          onChange={(event) => {
-            const next = parseStatus(event.target.value)
-            setSearchParams(next ? { status: next } : {})
-          }}
-        >
-          <option value="">All statuses</option>
-          {ticketStatuses.map((value) => (
-            <option key={value} value={value}>
-              {statusLabels[value]}
-            </option>
-          ))}
-        </select>
-      </div>
+      <StatusFilter status={status} onChange={(next) => setSearchParams(next ? { status: next } : {})} />
       {renderContent()}
     </section>
   )

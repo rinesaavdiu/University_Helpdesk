@@ -1,4 +1,5 @@
 import { requestJson, type ApiRequest } from './http'
+import { ticketListPath } from './ticketQuery'
 import type { Category, CreateTicketInput, ListTicketsParams, Ticket, TicketPage, UpdateTicketInput } from './types'
 
 /** The ticket and category operations the student screens use. */
@@ -21,13 +22,8 @@ function jsonBody(method: string, value: unknown): RequestInit {
 
 export function createStudentTicketApi(request: ApiRequest): StudentTicketApi {
   return {
-    listTickets({ status, page, pageSize }, signal) {
-      const query = new URLSearchParams()
-      if (status) query.set('status', status)
-      if (page) query.set('page', String(page))
-      if (pageSize) query.set('pageSize', String(pageSize))
-      const search = query.toString()
-      return requestJson<TicketPage>(request, search ? `/tickets?${search}` : '/tickets', { signal })
+    listTickets(params, signal) {
+      return requestJson<TicketPage>(request, ticketListPath(params), { signal })
     },
 
     getTicket(id, signal) {
