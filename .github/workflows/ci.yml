@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore UniversityHelpdesk.slnx
+
+      - name: Build
+        run: dotnet build UniversityHelpdesk.slnx --no-restore --configuration Release
+
+      # Database-backed integration tests and recovery checks are skipped: their variables are not set.
+      - name: Test
+        run: >-
+          dotnet test UniversityHelpdesk.slnx --no-build --configuration Release
+          --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results
+          path: TestResults
+          if-no-files-found: warn
+          retention-days: 14
+
+  kubernetes-smoke-test:
+    name: Kubernetes smoke test
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      KIND_CLUSTER: university-helpdesk
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build images
+        run: |
+          docker build --file backend/UniversityHelpdesk.Api/Dockerfile --tag university-helpdesk-api:local .
+          docker build --file backend/UniversityHelpdesk.NotificationWorker/Dockerfile --tag university-helpdesk-worker:local .
+
+      # Random values for this run only; each is masked in the log before it is written.
+      - name: Create temporary credentials
+        run: bash scripts/ci/new-kind-secrets.sh
+
+      - name: Create kind cluster
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          config: deploy/kubernetes/kind-cluster.yaml
+          cluster_name: ${{ env.KIND_CLUSTER }}
+          wait: 120s
+
+      - name: Deploy
+        run: bash scripts/ci/deploy-kind.sh
+
+      - name: Smoke test
+        run: bash scripts/ci/smoke-test.sh
+
+      - name: Collect diagnostics
+        if: always()
+        run: bash scripts/ci/collect-diagnostics.sh diagnostics
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kubernetes-diagnostics
+          path: diagnostics
+          if-no-files-found: warn
+          retention-days: 14
