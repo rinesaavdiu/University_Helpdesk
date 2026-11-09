@@ -12,9 +12,9 @@ This repository contains the backend, which consists of the Ticket API and the
 Notification Worker, and a React web frontend for students and technicians in
 `frontend/`. Students sign in to report and follow their tickets, and
 technicians to work through the queue and move tickets to In progress and
-Resolved. The frontend is not yet served by Docker Compose; until it is, run
-it with the development server (see "Run the frontend"), or use the Swagger
-UI or the Postman collection described below.
+Resolved. Docker Compose builds the frontend and serves it, together with the
+API, at `http://localhost:58080`. The Swagger UI and the Postman collection
+described below exercise the API directly.
 
 The commands below are for Windows PowerShell and run from the repository root.
 
@@ -24,7 +24,7 @@ What you need depends on how you run the project:
 
 | Task | Tools |
 | ---- | ----- |
-| Run everything in containers | Docker Engine with Docker Compose v2 |
+| Run everything in containers, including the frontend | Docker Engine with Docker Compose v2 |
 | Run the API and worker from source | .NET 10 SDK, plus Docker for the backing services |
 | Deploy to a local Kubernetes cluster | Docker, kind, and kubectl |
 | Run or build the frontend | Node.js 20.19 or later, or 22.12 or later, with npm |
@@ -43,7 +43,8 @@ These are the versions the project was built and verified with:
 
 The services run as these images: `postgres:18.6-alpine`,
 `rabbitmq:4.1-management-alpine`, `redis:8.2-alpine`, `axllent/mailpit:v1.33`,
-and `nginx:1.28-alpine` (the Compose gateway). The main libraries are
+and `nginx:1.28-alpine` (the Compose gateway, which also serves the frontend
+built in `node:22.22-alpine`). The main libraries are
 ASP.NET Core 10, EF Core 10.0.4 with Npgsql 10.0.3, RabbitMQ.Client 7.2.2,
 StackExchange.Redis 3.4.31, MailKit 4.18.2, prometheus-net 8.2.1, and xUnit
 2.9.3.
@@ -53,7 +54,7 @@ StackExchange.Redis 3.4.31, MailKit 4.18.2, prometheus-net 8.2.1, and xUnit
 Requires Docker with Docker Compose v2 (on Windows, Docker Desktop with the
 WSL 2 backend, or Docker Engine installed inside a WSL 2 distribution, where
 you run the `docker` commands from the repository folder under `/mnt/c/...`).
-The .NET SDK is not needed for this.
+The .NET SDK and Node.js are not needed for this.
 
 1. Copy the example settings, then open `.env` and replace every `change-me`.
    Use only letters and digits in passwords, and at least 32 characters for
@@ -69,7 +70,7 @@ The .NET SDK is not needed for this.
    `-join ((48..57) + (65..90) + (97..122) | Get-Random -Count 40 | ForEach-Object { [char]$_ })`.
 
 2. Build the images and start the system. The first build downloads the .NET
-   images and takes a few minutes.
+   and Node.js images and the npm packages, and takes a few minutes.
 
    ```powershell
    docker compose up -d --build --wait
@@ -80,16 +81,27 @@ The .NET SDK is not needed for this.
    `student1@uni.test`, `student2@uni.test`, and `technician1@uni.test` with
    the passwords from `.env`. `db-init` is safe to repeat and runs on every
    `docker compose up`. Only after it succeeds do the two API replicas start,
-   behind a `gateway` that spreads requests between them. The Notification
-   Worker uses the same RabbitMQ exchange and queue settings as the API.
+   behind a `gateway` that spreads requests between them. The gateway is an
+   nginx image built by `frontend/Dockerfile`: it installs the frontend's
+   packages from `frontend/package-lock.json` with `npm ci`, lints and builds
+   the app, and serves the result. The Notification Worker uses the same
+   RabbitMQ exchange and queue settings as the API.
 
 3. Open the services:
 
    | URL                              | What                                                     |
    | -------------------------------- | -------------------------------------------------------- |
+   | `http://localhost:58080`         | The web app. Sign in with a demo account; students go to their tickets and technicians to the ticket queue. |
    | `http://localhost:58080/swagger` | API (Swagger UI). Log in with `POST /auth/login`, then select **Authorize** and paste the `accessToken`. |
    | `http://localhost:58025`         | Mailpit inbox with the resolution emails.                 |
    | `http://localhost:55673`         | RabbitMQ management UI (`RABBITMQ_USER` / `RABBITMQ_PASSWORD`). |
+
+   The app calls the API under `/api`: the gateway removes that prefix and
+   forwards `/api/tickets` to the API's `/tickets`, for example. The API's own
+   paths (`/auth`, `/tickets`, `/categories`, `/health`, `/swagger`) also still
+   work at the gateway, as documented below. Every other path returns the
+   app, so links such as `/student/tickets/3` can be opened directly or
+   refreshed.
 
 4. Check the state and the logs:
 
@@ -254,7 +266,8 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
 ## Run the frontend
 
 The frontend in `frontend/` is a React and TypeScript app built with Vite.
-So far it has sign-in at `/login`, the student screens (the ticket list,
+Docker Compose builds and serves it (see above); this section is for working
+on it. It has sign-in at `/login`, the student screens (the ticket list,
 ticket details with edit and delete for open tickets, and the issue report
 form, at `/student/tickets`, `/student/tickets/{id}`,
 `/student/tickets/{id}/edit`, and `/student/tickets/new`), and the
@@ -570,7 +583,7 @@ is in `docs/verification-results.md`.
 `.github/workflows/ci.yml` runs on pushes to `main`, on pull requests to any
 branch, and manually from the **Actions** tab (**CI → Run workflow**, or
 `gh workflow run ci.yml --ref main`). Pushes to other branches do not trigger
-it. It has two jobs:
+it. It has three jobs:
 
 1. **Build and test** restores and builds the solution in Release and runs
    `dotnet test`. The test results (`.trx` files) are uploaded as the
@@ -583,6 +596,10 @@ it. It has two jobs:
    must reach the student in Mailpit. The namespace's resources, events, and
    container logs are uploaded as the `kubernetes-diagnostics` artifact, with
    every credential value replaced by `***`.
+3. **Frontend and gateway** builds the gateway image from
+   `frontend/Dockerfile`, which installs the frontend from its lockfile, runs
+   the linter, and builds the app, and then checks the nginx configuration
+   with `nginx -t`.
 
 Which suites run where:
 
@@ -647,7 +664,8 @@ change, and a record of the rehearsals.
 files and checks that it contains the required items and no local secrets or
 build output; `scripts/verify-package.ps1` extracts it into a clean folder,
 builds and tests it, and runs `scripts/verify-compose.sh`, which starts Docker
-Compose with a fresh `.env` and new volumes and checks the core flow. The
+Compose with a fresh `.env` and new volumes, checks that the gateway serves the
+app and the API, and checks the core flow. The
 steps and the hand-in checklist are in `docs/submission-checklist.md`.
 
 ```powershell
@@ -670,7 +688,7 @@ group member's contributions.
 | `benchmarks/`    | Load benchmark for the documented performance target          |
 | `database/init/` | Scripts PostgreSQL runs when its Compose volume is created    |
 | `deploy/`        | Configuration for the Compose gateway, and Kubernetes manifests in `deploy/kubernetes/` |
-| `frontend/`      | React web frontend for students and technicians (in progress) |
+| `frontend/`      | React web frontend for students and technicians, and the Dockerfile for the gateway that serves it |
 | `tests/`         | Unit, integration, and recovery tests, and the Postman collection |
 | `docs/`          | Project documentation and requirements                        |
 | `scripts/`       | Packaging and clean-copy verification of the submission ZIP    |

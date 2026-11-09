@@ -8,7 +8,8 @@ small interface, and the code that sends requests is in one file. Sign-in,
 the session, the role guards, and the technician ticket queue and status
 actions use the same file.
 
-Still to build: serving the frontend from Docker Compose.
+Docker Compose builds the app and serves it from the gateway at
+`http://localhost:58080` (see "API address" below).
 
 ## Student routes
 
@@ -150,10 +151,28 @@ The sign-in page calls `login(apiRequest, email, password)` from
 
 The app calls `/api/...`. `npm run dev` and `npm run preview` forward `/api`
 to `HELPDESK_API_URL` (default `http://127.0.0.1:58080`, the Compose gateway)
-and remove the `/api` prefix (`frontend/vite.config.ts`). For Compose, either
-serve the built `frontend/dist/` behind a proxy that does the same, or build
-with `VITE_API_BASE_URL` set to the API's address (the API would then need
-CORS for that origin).
+and remove the `/api` prefix (`frontend/vite.config.ts`).
+
+In Docker Compose the gateway does the same. `frontend/Dockerfile` runs
+`npm ci` from `package-lock.json`, `npm run lint`, and `npm run build` in a
+Node.js stage, then copies `dist/` into an nginx image with
+`deploy/gateway.conf`. That configuration:
+
+- forwards `/api/...` to the API replicas without the prefix, and still
+  forwards the API's own paths (`/auth`, `/tickets`, `/categories`,
+  `/health`, `/swagger`) unchanged;
+- answers `404` for `/metrics` and `/api/metrics`;
+- serves `/assets/` (file names with content hashes) with a one-year cache,
+  and returns `404` for a missing asset instead of the app;
+- returns `index.html` for every other path that is not a file, so a route
+  such as `/technician/tickets/3` works when opened directly or refreshed,
+  and React Router shows "Page not found" for unknown paths;
+- sends `index.html` with `Cache-Control: no-cache` and a Content Security
+  Policy that allows scripts, styles, and requests only from the same origin.
+
+The app is built without `VITE_API_BASE_URL`, so it calls the gateway it was
+loaded from and the API needs no CORS. Rebuild the gateway after a frontend
+change with `docker compose up -d --build gateway`.
 
 ## Development harness (removed)
 

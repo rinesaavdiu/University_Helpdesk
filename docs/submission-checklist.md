@@ -16,8 +16,8 @@ result.
 
 | Course item (section 11) | In the package |
 | ------------------------ | -------------- |
-| 1. Source code | `backend/` (API and Notification Worker), `benchmarks/`, `UniversityHelpdesk.slnx` |
-| 2. Configuration and run scripts | `.env.example`, `compose.yaml`, `deploy/` (gateway and Kubernetes, with `secrets.env.example`), `appsettings.json` files, Dockerfiles, `.github/workflows/ci.yml`, `scripts/` |
+| 1. Source code | `backend/` (API and Notification Worker), `frontend/` (React app with `package.json` and `package-lock.json`), `benchmarks/`, `UniversityHelpdesk.slnx` |
+| 2. Configuration and run scripts | `.env.example`, `compose.yaml`, `deploy/` (gateway and Kubernetes, with `secrets.env.example`), `appsettings.json` files, Dockerfiles (including `frontend/Dockerfile` for the gateway), `.github/workflows/ci.yml`, `scripts/` |
 | 3. Database | EF Core migrations in `backend/UniversityHelpdesk.Api/Persistence/Migrations/` (schema and the six categories), **`database/schema.sql`** (generated from the migrations when the package is built), `database/init/` (test database), and the demo-account seeding described in the README, "Database initialization" |
 | 4. Tests and results | `tests/` (unit, HTTP, integration, recovery, Postman), `docs/test-cases.md`, `docs/verification-results.md`, `docs/benchmark-results.md` |
 | 5. README | `README.md`, plus `docs/requirements.md`, `docs/design.md`, `docs/api-contract.md` |
@@ -76,6 +76,10 @@ outside the repository, and follows the extracted README:
    so its containers and volumes are new. It then checks:
    - `db-init` exited with `0`, the migrations and categories are in the
      database, the three demo accounts exist, and `helpdesk_test` was created.
+   - The gateway serves the built frontend on direct links to student and
+     technician routes, its script under `/assets/`, the API under `/api`
+     and at its own paths, the health checks and Swagger, and hides
+     `/metrics`.
    - Logins as student and technician, `401` without a token, `403` when the
      student changes a status, ticket creation, `InProgress` and `Resolved`,
      the student sees `Resolved`, and the email reaches the student in
@@ -175,8 +179,8 @@ When the frontend is in `frontend/` and verified against the real API:
    browser walkthrough and screenshots), `docs/presentation.md` (the "Live
    demo" slide and any new results), and `docs/test-cases.md` and
    `docs/verification-results.md` for any frontend checks.
-2. If the frontend runs in Compose, add its start and a request through it to
-   `scripts/verify-compose.sh`.
+2. Done: Compose builds the frontend into the gateway image, and
+   `scripts/verify-compose.sh` requests the app and the API through it.
 3. Commit and push, and wait for GitHub Actions to pass.
 4. Build the package again with `-IncludeSlidesPdf`, and run
    `scripts/verify-package.ps1` on the new ZIP, without `-UseCachedImages`.

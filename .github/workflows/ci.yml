@@ -52,6 +52,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  frontend:
+    name: Frontend and gateway
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The image build installs the frontend from its lockfile, lints it, and builds it for production.
+      - name: Build the gateway image
+        run: docker build --file frontend/Dockerfile --tag university-helpdesk-gateway:local .
+
+      - name: Check the nginx configuration
+        run: docker run --rm university-helpdesk-gateway:local nginx -t
+
   kubernetes-smoke-test:
     name: Kubernetes smoke test
     needs: build-and-test

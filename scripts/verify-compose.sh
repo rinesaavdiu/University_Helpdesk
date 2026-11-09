@@ -2,8 +2,9 @@
 # Checks a fresh Docker Compose start of this copy of the project, as the README describes it:
 # creates .env from .env.example with random values, starts the system under its own project
 # name (so its containers and volumes are new and separate from any other copy), checks the
-# database initialization, and runs the core flow: login, an access check, ticket creation and
-# resolution, and the resolution email in Mailpit. Removes the containers and volumes at the end.
+# database initialization, checks that the gateway serves the React frontend and forwards API
+# requests, and runs the core flow: login, an access check, ticket creation and resolution, and the
+# resolution email in Mailpit. Removes the containers and volumes at the end.
 # Passwords and tokens are never printed.
 #
 # Usage: scripts/verify-compose.sh
@@ -80,9 +81,29 @@ test_database=$(sql "SELECT count(*) FROM pg_database WHERE datname = 'helpdesk_
 echo "Database: $migrations migrations applied, $categories active categories, $accounts of 3 demo accounts, helpdesk_test database: $test_database."
 [[ $migrations -ge 1 && $categories -ge 1 && $accounts == 3 && $test_database == 1 ]] || fail "database initialization is incomplete"
 
-# 4. Core flow through the gateway.
 api=http://127.0.0.1:$(setting API_HOST_PORT)
 mailpit=http://127.0.0.1:$(setting MAILPIT_UI_HOST_PORT)
+body_file=$(mktemp)
+
+# 4. The gateway serves the frontend and forwards API requests.
+# get PATH: prints the HTTP status code and content type; the body goes to $body_file.
+get() { curl -sS -o "$body_file" -w '%{http_code} %{content_type}' "$api$1"; }
+for path in / /login /student/tickets/1 '/technician/tickets?status=Open'; do
+  result=$(get "$path")
+  [[ $result == "200 text/html"* ]] && grep -q '<div id="root">' "$body_file" || fail "GET $path: expected the app page, got $result"
+done
+get / > /dev/null
+asset=$(grep -o '/assets/[^"]*\.js' "$body_file" | head -n 1)
+[[ -n $asset && $(get "$asset") == "200 application/javascript"* ]] || fail "GET the app script $asset"
+[[ $(get /api/health/live) == "200 application/json"* ]] && grep -q '"Healthy"' "$body_file" || fail "GET /api/health/live"
+[[ $(get /health/ready) == "200 application/json"* ]] || fail "GET /health/ready"
+[[ $(get /swagger/index.html) == "200 text/html"* ]] || fail "GET /swagger/index.html"
+[[ $(get /swagger/v1/swagger.json) == "200 application/json"* ]] || fail "GET /swagger/v1/swagger.json"
+[[ $(get /metrics) == 404* && $(get /api/metrics) == 404* ]] || fail "/metrics must not be reachable through the gateway"
+echo "Gateway: the app page for /, /login, and direct links to student and technician pages; the app script;"
+echo "  /api/health/live, /health/ready, and Swagger forwarded to the API; /metrics and /api/metrics blocked."
+
+# 5. Core flow through the gateway.
 
 login() {
   local token
@@ -93,7 +114,6 @@ login() {
   printf '%s' "$token"
 }
 # status METHOD PATH TOKEN [JSON_BODY]: prints the HTTP status code; the body goes to $body_file.
-body_file=$(mktemp)
 status() {
   local args=(-sS -o "$body_file" -w '%{http_code}' -X "$1" -H "Authorization: Bearer $3")
   [[ $# -ge 4 ]] && args+=(-H 'Content-Type: application/json' --data "$4")
@@ -121,10 +141,10 @@ for target in InProgress Resolved; do
   expect "$(status PATCH "/tickets/$id/status" "$technician" "{\"status\":\"$target\",\"version\":$version}")" 200 "move to $target"
   version=$(jq -r .version "$body_file")
 done
-expect "$(status GET "/tickets/$id" "$student")" 200 "student reads the ticket"
+expect "$(status GET "/api/tickets/$id" "$student")" 200 "student reads the ticket through /api, as the frontend does"
 [[ $(jq -r .status "$body_file") == Resolved ]] || fail "the student does not see ticket #$id as Resolved"
 resolved=$(date +%s)
-echo "Resolution: technician moved #$id to InProgress and Resolved; the student sees Resolved."
+echo "Resolution: technician moved #$id to InProgress and Resolved; the student sees Resolved through /api."
 
 subject="Your helpdesk ticket #$id has been resolved"
 for _ in $(seq 1 60); do

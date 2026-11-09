@@ -202,18 +202,18 @@ change, and `PublishedAt` was set once RabbitMQ confirmed the event.
 
 The same story with the React student screens instead of the student's
 Swagger window. The technician part still uses Swagger; technicians can also
-use **Start work** and **Resolve ticket** on the React ticket page. This needs the frontend development server (see "Run the
-frontend" in the README); the routes, the session, and the API client are
-described in [`frontend-handoff.md`](frontend-handoff.md).
+use **Start work** and **Resolve ticket** on the React ticket page. Docker
+Compose serves the app from the gateway, so nothing else needs to run; the
+routes, the session, and the API client are described in
+[`frontend-handoff.md`](frontend-handoff.md).
 
 **Setup.**
 
-1. Start the system as above, then in `frontend/` run `npm ci` once and
-   `npm run dev`.
-2. In the student browser window, open `http://localhost:5173` and sign in as
+1. Start the system as above.
+2. In the student browser window, open `http://localhost:58080` and sign in as
    `student1@uni.test`. The header shows "Demo Student One, Student" and
    **Sign out**.
-3. In the private window, open `http://localhost:5173` and sign in as
+3. In the private window, open `http://localhost:58080` and sign in as
    `student2@uni.test`. Each tab keeps its own session.
 4. The technician signs in to Swagger in a third window, or in the private
    window after the student 2 check.
@@ -243,7 +243,7 @@ and chooses whether to reapply their changes.
 ![Edit form](screenshots/student-04-edit.png)
 
 **S4. Ownership (student 2).** In student 2's tab, open
-`http://localhost:5173/student/tickets/<id>` for student 1's ticket. Expected: "Ticket not found.
+`http://localhost:58080/student/tickets/<id>` for student 1's ticket. Expected: "Ticket not found.
 This ticket does not exist, or it was reported by another student." The API
 answers `404`, so student 2 cannot tell whether the ticket exists. Student 2's
 list does not include it.

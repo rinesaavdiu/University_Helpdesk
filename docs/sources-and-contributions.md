@@ -73,7 +73,8 @@ framework.
 | `rabbitmq` | `4.1-management-alpine` | Message broker |
 | `redis` | `8.2-alpine` | Category cache |
 | `axllent/mailpit` | `v1.33` | Test mail inbox |
-| `nginx` | `1.28-alpine` | Compose gateway |
+| `nginx` | `1.28-alpine` | Compose gateway, serving the frontend |
+| `node` | `22.22-alpine` | Building the frontend inside the gateway image |
 | Docker Engine and Docker Compose, kind, kubectl | See the README's "Tools and versions" | Local deployment |
 | GitHub Actions: `actions/checkout`, `actions/setup-dotnet`, `actions/upload-artifact`, `helm/kind-action` | Pinned to commit SHAs in `.github/workflows/ci.yml` | CI |
 | Postman collection format v2.1 and Newman | Newman 6 | API walkthrough and checks |
