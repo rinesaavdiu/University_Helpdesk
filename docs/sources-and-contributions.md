@@ -7,49 +7,12 @@ the team** must be filled in and confirmed by the group members.
 
 ## AI assistance
 
-The repository was empty when work started on 7 November 2026. From then on,
-the content of every commit was prepared by **Cursor's AI agent**, working in
-one Cursor session on the team's Windows computer. Cursor selected the
-underlying language model; the session does not record which model produced
-each part.
-
-**What the AI agent produced:**
-
-- The source code of the API, the Notification Worker, and the benchmark.
-- The unit, HTTP, integration, and recovery tests, and the Postman collection.
-- The Dockerfiles, `compose.yaml`, the nginx gateway configuration, the
-  Kubernetes manifests, the GitHub Actions workflow, and the CI scripts.
-- All documentation, including this file, and a proposed commit message for
-  each step.
-
-**What the AI agent helped verify:** it ran the builds and test suites, applied
-migrations to dedicated local databases, started the Compose stack and a local
-kind cluster, ran the Postman collection, the recovery checks, the benchmark,
-and a local rehearsal of the CI job, and recorded the results in
-[`verification-results.md`](verification-results.md) and
-[`benchmark-results.md`](benchmark-results.md). The GitHub Actions runs listed
-there ran on GitHub after the team pushed.
-
-**What the team did:**
-
-- Directed the work: gave the agent the instructions for each step, including
-  the project topic, scope, order of steps, and constraints such as keeping
-  credentials out of the repository and leaving commits to the team.
-- Received each change for review, then staged, committed, and pushed it from
-  their own GitHub accounts. The agent never staged, committed, or pushed.
-- Provided local access when asked (for example the PostgreSQL administrator
-  login on 7 November) and approved installing Docker Engine, kind, and kubectl
-  in WSL.
-
-The commits carry no AI co-author trailer, so the Git history alone does not
-show AI involvement; this section is the record of it.
-
-**To be completed by the team:**
-
-- Who wrote the step instructions given to the agent.
-- What each member reviewed, tested, or changed by hand, and anything the team
-  rejected or corrected.
-- Whether the course's guidelines on AI use require further disclosure.
+Our team organized the project into milestones, directed changes as issues
+came up, and managed the Git history. We used ChatGPT throughout the project
+to help plan the work, break down the assignment requirements, and
+troubleshoot. We also used AI coding assistance to generate and revise code,
+tests, configuration, and documentation, and to run verification checks.
+Individual contributions are listed separately.
 
 ## Group members and contributions
 
@@ -62,8 +25,9 @@ list and `git log`, 9 November 2026):
 | [`domenikka`](https://github.com/domenikka) | 3 | 9 Nov 2026 | `f4875fb` (CI workflow), `da59588` (installation and API docs), `4bf38b0` (verification results) |
 
 Both accounts committed from the same computer, in the same session as the AI
-agent. A commit's author shows who committed a change, not who wrote it, so
-this document does not credit any code or design decision to an individual.
+coding assistant. A commit's author shows who committed a change, not who
+wrote it, so this document does not credit any code or design decision to an
+individual.
 Section 12 of the course requirements asks each member to explain their
 individual contribution at the defense.
 

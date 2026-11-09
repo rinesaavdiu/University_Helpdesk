@@ -23,7 +23,7 @@ WSL 2 (Ubuntu 22.04). Clients on Windows used .NET SDK 10 (runtime 10.0.14).
 | Kubernetes deployment (local kind cluster) | Ordered start-up, end-to-end flow, data persists | Met; see below | 8 Nov 2026 |
 | Local HTTPS (`--launch-profile https`) | HTTPS served, HTTP redirected | Met with an untrusted development certificate; see TC-34 | 9 Nov 2026 |
 | GitHub Actions | Both jobs pass on push to `main` | 5 of 5 runs succeeded | 9 Nov 2026 |
-| Clean, extracted submission package starts and passes its checks (NFR-M3) | Health checks pass from the extracted copy | Not yet run | Open |
+| Clean, extracted submission package starts and passes its checks (NFR-M3) | Health checks pass from the extracted copy | Build, ordinary tests, and the Compose start and core flow passed from the extracted copy, but with images built earlier from the repository; building the images from the package was blocked by DNS. See below | Partly met, 9 Nov 2026; fresh image build open |
 | NFR-P1: `GET /tickets` p95 under 300 ms | Under 300 ms | 76.5 to 133.0 ms over 7 runs | 8 and 9 Nov 2026 |
 | Category cache speedup | Warm reads faster than cold reads | Not demonstrated for this workload | 8 Nov 2026 |
 
@@ -126,6 +126,28 @@ The job logs and artifact contents require signing in to GitHub and were not
 read for this record, so the hosted test counts are not quoted here. The test
 command is the same as the ordinary suite above.
 
+## Submission package
+
+On 9 November 2026 the package was built with
+`scripts/package-submission.ps1 -IncludeSlidesPdf` from the files prepared for
+the packaging commit (Git tree `570e2b7`, which includes the presentation and
+demo runbook), and checked with `scripts/verify-package.ps1`. The procedure is
+in [`submission-checklist.md`](submission-checklist.md).
+
+| Check | Expected | Actual |
+| ----- | -------- | ------ |
+| Contents | Every required item present; no excluded file; no secret value | 150 files, 0.3 MB, including the generated `database/schema.sql` and `docs/presentation.pdf`; all checks passed. 146 text files were scanned, and 12 values from the local `.env` and `secrets.env` were compared without being printed |
+| The checks catch problems | A ZIP with a planted `.env`, a `bin/` DLL, a `.pem` file, a local secret value in a document, and no `docs/presentation.md` fails | Each of the five was reported and the script exited with `1` |
+| Build from the extracted copy | `dotnet build` succeeds | Passed (Release) |
+| Ordinary tests from the extracted copy | All pass; service-backed tests skip | API 86 passed and 17 skipped, worker 14 passed, recovery 5 skipped |
+| Compose with images built from the package | All services healthy | **Not verified.** `docker compose up --build` failed before building: WSL could not resolve `mcr.microsoft.com` (DNS timeout), while Windows could |
+| Compose with cached images, fresh `.env` and new volumes (project `helpdesk-verify`) | Healthy services, database initialized, core flow works, email delivered | All 8 services healthy after 33 s; `db-init` exited `0`; 3 migrations, 6 categories, 3 demo accounts, and `helpdesk_test`; both logins `200`; no token `401`; student status change `403`; ticket #1 created and resolved; the student sees `Resolved`; the email reached `student1@uni.test` within 3 s. The project's containers, volumes, and `.env` were removed afterwards |
+
+The cached images had been built on 8 November from the repository, after the
+last change to `backend/`, so they contain the same code as the package. They
+were not built from the package itself, and the Dockerfiles in the package were
+not exercised. That check stays open.
+
 ## Performance
 
 **Workload.** The benchmark in `benchmarks/UniversityHelpdesk.Benchmark` ran
@@ -219,9 +241,10 @@ not from password hashing in the API. The README's benchmark command now passes
   acknowledging are possible by design (at-least-once delivery) but are not
   covered by a test, and neither is SQL injection-style input (all queries are
   parameterized by EF Core).
-- **Clean package not yet verified.** NFR-M3 was checked on this machine, not
-  from a clean, extracted copy of the submission package. That check stays
-  open until the packaging step.
+- **Images not yet built from the package.** The clean-copy check of the
+  submission package passed with cached images only (see "Submission
+  package"). Building the images from the extracted copy stays open until WSL
+  can reach `mcr.microsoft.com` again.
 - **Frontend.** A web frontend is planned and was not tested; all checks used
   the API directly.
 

@@ -582,6 +582,20 @@ or ticket descriptions. See `docs/api-contract.md` for the metric names.
 `docs/demo-runbook.md` the step-by-step live demo, a practice exercise for a
 small live code change, and a record of the rehearsal.
 
+## Submission package
+
+`scripts/package-submission.ps1` builds the submission ZIP from the committed
+files and checks that it contains the required items and no local secrets or
+build output; `scripts/verify-package.ps1` extracts it into a clean folder,
+builds and tests it, and runs `scripts/verify-compose.sh`, which starts Docker
+Compose with a fresh `.env` and new volumes and checks the core flow. The
+steps and the hand-in checklist are in `docs/submission-checklist.md`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/package-submission.ps1 -IncludeSlidesPdf
+powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1 -ZipPath submission/University_Helpdesk-<commit>.zip
+```
+
 ## Sources and contributions
 
 `docs/sources-and-contributions.md` lists the libraries, images, and tools the
@@ -599,4 +613,5 @@ group member's contributions.
 | `deploy/`        | Configuration for the Compose gateway, and Kubernetes manifests in `deploy/kubernetes/` |
 | `tests/`         | Unit, integration, and recovery tests, and the Postman collection |
 | `docs/`          | Project documentation and requirements                        |
+| `scripts/`       | Packaging and clean-copy verification of the submission ZIP    |
 | `scripts/ci/`    | Scripts the CI workflow uses to deploy to kind, run the smoke test, and collect diagnostics |
