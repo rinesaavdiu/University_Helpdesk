@@ -13,6 +13,7 @@ environments, is in [`verification-results.md`](verification-results.md).
 | Local, with Compose services | 8 Nov 2026 | The recovery checks against the Compose PostgreSQL, RabbitMQ, Mailpit, and Redis; the Postman collection through the gateway | Recovery 5 of 5 passed; Newman 27 of 27 passed |
 | GitHub Actions | 9 Nov 2026, commit `7c0b1f8` | [Run 42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387): ordinary tests and the Kubernetes smoke test | Succeeded |
 | Manual HTTPS check | 9 Nov 2026 | API started with `--launch-profile https` | See TC-34 |
+| Browser, through the Compose gateway | 10 Nov 2026, commit `dfa9d19` | A stack started by `scripts/verify-compose.sh` from a `git archive` of the commit; the React app in separate browser tabs for the student and two technician sessions | See TC-37 to TC-42 |
 
 The evidence column names the test class and method in `tests/`. Where a test
 runs several inputs, the count is given in brackets. "Passed" in the actual
@@ -94,7 +95,26 @@ column means the test ran and every assertion held.
 | TC-35 | Postman collection through the Compose gateway | All 27 requests and assertions pass, including the full workflow of one ticket | Passed, 27 of 27 (8 Nov 2026) | `tests/postman/UniversityHelpdesk.postman_collection.json` |
 | TC-36 | Kubernetes smoke test: student login, create ticket `CI-101`, technician moves it to `InProgress` and `Resolved`, the student reads it | The student sees `Resolved`, and the resolution email reaches `student1@uni.test` in Mailpit | Passed in every hosted run, most recently [42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387) on `7c0b1f8b29265040e805a480ab1e05bd1cc1c908` | `scripts/ci/smoke-test.sh` |
 
+## Web frontend through the Compose gateway
+
+These ran in a browser against the production build served by the gateway
+(10 Nov 2026, commit `dfa9d19`). The walkthrough and screenshots are in
+[`demo-runbook.md`](demo-runbook.md#the-demo-in-the-browser). TC-37 is also
+checked by `scripts/verify-compose.sh` on every run.
+
+| ID | Input or precondition | Expected | Actual | Evidence |
+| -- | --------------------- | -------- | ------ | -------- |
+| TC-37 | Direct requests to `/`, `/login`, `/student/tickets/1`, `/technician/tickets?status=Open`, the app script, `/api/health/live`, `/health/ready`, `/swagger`, `/metrics`, `/api/metrics`, a missing file under `/assets/` | The app page for the routes; the script as JavaScript; health `200`; Swagger UI; `404` for the metrics paths and the missing file | Passed; Swagger UI listed all 8 operations | `scripts/verify-compose.sh`, step 4; manual check on 10 Nov 2026 |
+| TC-38 | Signed in, open or refresh `/student/tickets?status=Resolved`, `/student/tickets/1`, `/technician/tickets?status=Open&page=2`, `/technician/tickets/1`, and an unknown path | Each page loads with the session kept and the filter and page from the URL; the unknown path shows "Page not found"; no Content Security Policy violation | Passed; the list request kept its query (`/api/tickets?status=Open&page=2&pageSize=10`) | Manual check on 10 Nov 2026 |
+| TC-39 | Student 1 reports `C-112`, Projector; a technician starts work and resolves it in the app; the student refreshes the ticket | Open, then In progress, then Resolved with version 3; the student sees Resolved without edit or delete | Passed: ticket #2, version 3 | Runbook steps B1 to B7; `flow-02`, `flow-05`, `flow-07`, `flow-08` screenshots |
+| TC-40 | The student opens a technician page and sends a status change; the technician opens a student page and creates a ticket | "Not allowed" on both pages with no request to the other role's API; `403` for both API calls; the ticket stays Open | Passed | Runbook step B3; `flow-03` screenshot |
+| TC-41 | Two technician sessions on the same ticket; the second selects **Start work**, and later **Resolve ticket**, with an outdated version | `409`, the conflict warning, and the page reloads with the action for the current status, or none | Passed for both actions | Runbook step B5; `flow-06` screenshot |
+| TC-42 | The ticket in TC-39 is resolved | One email to `student1@uni.test` with the ticket number, room, category, and description; one `TicketResolved` row with `PublishedAt` set | Passed: delivered 0.3 s after resolving | Runbook step B8; `flow-09` screenshot |
+
 ## Not covered by an automated test
+
+- **The browser flow** (TC-38 to TC-42) was checked by hand with an
+  automated browser; the frontend has no automated UI tests.
 
 - **SQL injection.** All queries go through EF Core, which sends values as
   parameters; the one raw query (`OutboxPublisher`) uses `FromSql` with

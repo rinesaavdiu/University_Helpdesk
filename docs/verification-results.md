@@ -20,6 +20,7 @@ WSL 2 (Ubuntu 22.04). Clients on Windows used .NET SDK 10 (runtime 10.0.14).
 | Recovery checks (Compose services) | All pass | 5 of 5 passed | 8 Nov 2026 |
 | Postman collection (Newman, through the Compose gateway) | All requests and assertions pass | 27 of 27 passed | 8 Nov 2026 |
 | Compose deployment | Healthy services, email delivered, data persists | Met; see below | 8 Nov 2026 |
+| Web frontend through the Compose gateway | Direct links and refreshes work; a student reports a ticket, a technician resolves it, the student sees it, and the email matches; wrong roles and stale updates are refused | Met; see below | 10 Nov 2026 |
 | Kubernetes deployment (local kind cluster) | Ordered start-up, end-to-end flow, data persists | Met; see below | 8 Nov 2026 |
 | Local HTTPS (`--launch-profile https`) | HTTPS served, HTTP redirected | Met with an untrusted development certificate; see TC-34 | 9 Nov 2026 |
 | GitHub Actions | Both jobs pass on push to `main` | 5 of 5 runs succeeded | 9 Nov 2026 |
@@ -84,6 +85,37 @@ ticket #1.
 - The resolution email reached the Mailpit inbox.
 - Ticket #1 was still `Resolved` after a full `docker compose down` and `up`
   (volumes kept).
+
+**Web frontend through the Compose gateway** (10 November 2026, commit
+`dfa9d19`). The commit was extracted with `git archive` into a temporary
+folder and started by `scripts/verify-compose.sh` with images built from that
+folder, a fresh `.env`, and new volumes. The script passed: all services
+healthy after 39 s, 3 migrations, 6 categories, 3 demo accounts, its gateway
+checks, the core flow, and the email within 2 s. Then, in a browser, with one
+tab each for the student and two technician sessions (test cases TC-37 to
+TC-42, walkthrough and screenshots in
+[`demo-runbook.md`](demo-runbook.md#the-demo-in-the-browser)):
+
+- The production build ran under the gateway's Content Security Policy with no
+  violations. Direct links and refreshes of student and technician pages kept
+  the session and the filter and page from the URL.
+- The API answered the same with and without `/api`: health `200`, protected
+  routes `401` without a token, a wrong password `401`, an empty login `400`.
+  `/metrics` and `/api/metrics` returned `404`, and Swagger UI listed all 8
+  operations.
+- Student 1 reported ticket #2 (C-112, Projector). Technician session A
+  started work and resolved it (version 3); the student's refreshed page showed
+  Resolved without edit or delete actions.
+- Technician session B, still showing older versions, got `409` and the
+  conflict warning for both **Start work** and **Resolve ticket**, and its page
+  reloaded to the current status.
+- The student on a technician page and the technician on a student page saw
+  "Not allowed"; the student's status change and the technician's ticket
+  creation through the API returned `403`.
+- One email, "Your helpdesk ticket #2 has been resolved", reached
+  `student1@uni.test` 0.3 s after resolving, with the ticket's room, category,
+  and description; its `TicketResolved` row had `PublishedAt` 0.28 s after
+  `ResolvedAt`.
 
 **Kubernetes** (local kind cluster `university-helpdesk`, 8 November 2026):
 
@@ -245,8 +277,10 @@ not from password hashing in the API. The README's benchmark command now passes
   submission package passed with cached images only (see "Submission
   package"). Building the images from the extracted copy stays open until WSL
   can reach `mcr.microsoft.com` again.
-- **Frontend.** A web frontend is planned and was not tested; all checks used
-  the API directly.
+- **Frontend.** The React app has no automated UI tests. It was checked by
+  hand in a browser through the Compose gateway (see "Deployment checks"),
+  and CI checks only that it lints and builds into the gateway image. The
+  Kubernetes deployment does not include it.
 
 ## Follow-up findings
 

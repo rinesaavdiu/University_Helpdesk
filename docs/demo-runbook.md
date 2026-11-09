@@ -1,21 +1,18 @@
 # Demo runbook
 
 A step-by-step script for the live demonstration at the defense (section 12 of
-the course requirements): a student reports a problem in Swagger, a technician
-resolves it, the student sees the new status, and the resolution email arrives
-in Mailpit. Along the way it shows one access-control check and the matching
-rows in PostgreSQL. The slides are in [`presentation.md`](presentation.md).
+the course requirements): a student reports a problem in the web app, a
+technician resolves it, the student sees the new status, and the resolution
+email arrives in Mailpit. Along the way it shows access control, a conflicting
+update from a second technician, and the matching rows in PostgreSQL. The
+slides are in [`presentation.md`](presentation.md).
 
-The demo uses the Docker Compose system and takes about 8 minutes. The
-[rehearsal record](#rehearsal-record) at the end lists what was actually run
-before the defense and what was not.
-
-> **React frontend.** React sign-in, the student screens, and the technician
-> queue with status actions are built; see
-> [Student screens in the browser](#student-screens-in-the-browser). The
-> full React walkthrough will be added once the frontend is served by Docker
-> Compose; until then, the main demo below uses Swagger, and so does the
-> technician part of the student walkthrough.
+The demo uses the Docker Compose system, which serves the React app and the
+API from the gateway, and takes about 8 minutes. [The demo in the
+browser](#the-demo-in-the-browser) is the main script; [the same story in
+Swagger](#the-demo-in-swagger-backup) is the backup if the browser app cannot
+be shown. The [rehearsal record](#rehearsal-record) at the end lists what was
+actually run before the defense and what was not.
 
 ## Before the defense
 
@@ -23,14 +20,16 @@ Do these the day before, on the computer that will be used for the demo:
 
 1. Start the system and check that every service is healthy (see "Start the
    system" below). `docker compose up -d --build` needs internet access the
-   first time: the .NET base images are not stored on the demo laptop. If the
-   images `university-helpdesk-api:local` and `university-helpdesk-worker:local`
+   first time: the .NET and Node.js base images and the npm packages are not
+   stored on the demo laptop. If the images `university-helpdesk-api:local`,
+   `university-helpdesk-worker:local`, and `university-helpdesk-gateway:local`
    already exist and the code has not changed since they were built, use
    `docker compose up -d --no-build --wait` instead, which works offline.
 2. Run the whole demo once and note the ticket number it creates.
-3. Prepare two browser windows: one normal and one private (incognito). Swagger
-   keeps one token per window, so the student uses one window and the
-   technician the other, and nobody has to log out in the middle of the demo.
+3. Prepare two browser windows: one normal and one private (incognito). The
+   app keeps one session per browser tab, and Swagger one token per window, so
+   the student uses one window and the technician the other, and nobody has
+   to sign out in the middle of the demo.
 4. Have the demo passwords ready from `.env` (`DEMO_STUDENT1_PASSWORD`,
    `DEMO_STUDENT2_PASSWORD`, `DEMO_TECHNICIAN1_PASSWORD`) without opening `.env`
    on the projected screen. They are local demo passwords, but `.env` also
@@ -62,19 +61,124 @@ Open these tabs:
 
 | Tab | URL |
 | --- | --- |
-| Swagger, student (normal window) | `http://127.0.0.1:58080/swagger` |
-| Swagger, technician (private window) | `http://127.0.0.1:58080/swagger` |
+| App, student (normal window) | `http://127.0.0.1:58080` |
+| App, technician (private window) | `http://127.0.0.1:58080` |
 | Mailpit | `http://127.0.0.1:58025` |
+| Swagger, only for the backup demo | `http://127.0.0.1:58080/swagger` |
 
 Use `127.0.0.1` rather than `localhost`: on the demo laptop each new connection
 to `localhost` waited about 2 seconds (see
 [`benchmark-results.md`](benchmark-results.md)).
 
-## The demo
+## The demo in the browser
 
 Each step lists what to do, what the audience should see, and what to say. The
-ticket number, timestamps, and versions in the examples come from the
-rehearsal; yours will differ.
+ticket number and times come from the browser rehearsal on 10 November 2026
+(see the [rehearsal record](#browser-flow-through-the-compose-gateway)); yours
+will differ. Type the passwords without showing `.env`.
+
+### B1. The student signs in (normal window)
+
+Open `http://127.0.0.1:58080`; it shows the sign-in page. Sign in as
+`student1@uni.test`. Expected: **My tickets**, with "Demo Student One,
+Student" and **Sign out** in the header.
+
+![Sign-in page](screenshots/flow-01-sign-in.png)
+
+Say: the API checks the password hash and returns a signed token that expires
+after an hour; the app keeps it only in this tab's session storage.
+
+### B2. The student reports a problem
+
+Select **Report an issue**, enter room `C-112`, category **Projector**, and a
+description, and select **Report issue**. Expected: the ticket opens with
+"Your issue was reported as ticket #2.", status **Open**, and **Edit ticket**
+and **Delete ticket**.
+
+![Reported ticket](screenshots/flow-02-student-reported.png)
+
+Say: the server sets the owner, the status, and the version; the form cannot
+send them.
+
+### B3. Access control
+
+Still as the student, open `http://127.0.0.1:58080/technician/tickets/2`.
+Expected: "Not allowed. This page is only for technicians." The app makes no
+request to the technician API, and the API itself would answer `403` (backup
+demo step 3).
+
+![Student on a technician page](screenshots/flow-03-student-wrong-role.png)
+
+Say: the roles are enforced on the server by authorization policies; the page
+only explains it. Another student gets "Ticket not found" for this ticket,
+because the API answers `404` (test case TC-08).
+
+### B4. The technician starts work (private window)
+
+Sign in as `technician1@uni.test`. Expected: **All tickets**. Choose **Open**
+under **Status**: the new ticket is listed with the student and category.
+
+![Technician queue](screenshots/flow-04-technician-queue.png)
+
+Open the ticket and select **Start work**. Expected: "You started work on
+ticket #2.", status **In progress**, and a **Resolve ticket** button.
+
+![Ticket in progress](screenshots/flow-05-technician-in-progress.png)
+
+### B5. Optional: a conflicting update
+
+Before B4's **Start work**, open the same ticket in a second technician tab
+(sign in there as well). After **Start work** in the first tab, select
+**Start work** in the second. Expected: "Ticket #2 was changed by someone else
+before your update was saved, so nothing was changed. The latest version is
+shown below. Check it before you continue." The page reloads and offers
+**Resolve ticket**.
+
+![Conflict warning](screenshots/flow-06-technician-stale-conflict.png)
+
+Say: the app sends the version it showed; the API's conditional `UPDATE`
+found a newer version and answered `409`, so two technicians cannot both apply
+a change.
+
+### B6. The technician resolves the ticket
+
+Select **Resolve ticket**. Expected: "Ticket #2 is resolved. The student will
+get an email.", status **Resolved** with the resolution time, and "This ticket
+is resolved. There are no further status changes."
+
+![Resolved by the technician](screenshots/flow-07-technician-resolved.png)
+
+Say: resolving the ticket also saves a notification event in the same database
+transaction.
+
+### B7. The student sees the update (normal window)
+
+Refresh the student's ticket page. Expected: status **Resolved**, the
+**Resolved** time, no **Edit** or **Delete**, and "Only open tickets can be
+edited or deleted. This ticket has been resolved."
+
+![Resolved for the student](screenshots/flow-08-student-resolved.png)
+
+### B8. The email arrives in Mailpit
+
+Switch to the Mailpit tab. Expected: an email from University Helpdesk to
+`student1@uni.test` with the subject "Your helpdesk ticket #2 has been
+resolved", containing the room, the category, the resolution time, and the
+student's description. In the rehearsal it arrived 0.3 seconds after
+resolving.
+
+![Resolution email](screenshots/flow-09-mailpit-email.png)
+
+Say: the API never sends email itself. It published the event to RabbitMQ,
+and the separate Notification Worker sent the email (backup demo step 6).
+
+Finish with the database rows, as in step 7 below.
+
+## The demo in Swagger (backup)
+
+The same story with the API alone, if the web app cannot be shown. The ticket
+number, timestamps, and versions in the examples come from the Swagger
+rehearsal on 9 November 2026; yours will differ.
 
 ### 1. The student signs in (student window)
 
@@ -200,11 +304,12 @@ change, and `PublishedAt` was set once RabbitMQ confirmed the event.
 
 ## Student screens in the browser
 
-The same story with the React student screens instead of the student's
-Swagger window. The technician part still uses Swagger; technicians can also
-use **Start work** and **Resolve ticket** on the React ticket page. Docker
-Compose serves the app from the gateway, so nothing else needs to run; the
-routes, the session, and the API client are described in
+A longer tour of the student screens, for questions about them: the status
+filter, editing, ownership, and deleting. It was recorded on 9 November 2026,
+before React sign-in and the technician screens existed, so its screenshots
+show the development harness banner instead of the header, and the technician
+used Swagger in S6; today the technician can use the app as in demo steps B4
+to B6. The routes, the session, and the API client are described in
 [`frontend-handoff.md`](frontend-handoff.md).
 
 **Setup.**
@@ -364,6 +469,35 @@ tickets; `docker compose down -v` deletes all data and is not needed.
 
 ## Rehearsal record
 
+### Browser flow through the Compose gateway
+
+Run on 10 November 2026 on commit `dfa9d19` ("serve the React frontend
+through Compose"), on the laptop described in
+[`verification-results.md`](verification-results.md). The commit was
+extracted with `git archive` into a temporary folder and started with
+`scripts/verify-compose.sh` (images built from that folder, a fresh `.env`,
+new volumes, gateway on port `38080`, Mailpit on `38025`); the script's own
+checks passed and created ticket #1. The browser steps were driven by the
+Cursor browser automation tool, one tab per session: the student, technician
+session A, and technician session B. Passwords were filled into the sign-in
+form by a local helper without being shown, and no token was displayed or
+logged. Apart from signing in, every page ran under the gateway's Content
+Security Policy.
+
+| Step | Result |
+| ---- | ------ |
+| B1 Sign in | Student 1 reached **My tickets** with "Demo Student One, Student" in the header |
+| B2 Report | Ticket #2 (C-112, Projector) opened with "Your issue was reported as ticket #2.", status Open |
+| B3 Access control | Student on `/technician/tickets/2`: "Not allowed. This page is only for technicians.", no technician API request. Student `PATCH /api/tickets/2/status`: `403`; the ticket stayed Open. Technician on `/student/tickets/2`: "Not allowed. This page is only for students."; technician `POST /api/tickets`: `403` |
+| B4 Queue and Start work | The **Open** filter showed 1 ticket, #2, with "Student #1"; **Start work** in session A: "You started work on ticket #2.", In progress |
+| B5 Stale updates | Session B, still showing version 1, selected **Start work**: `409`, the conflict warning, reloaded to In progress with **Resolve ticket**. After B6, session B's **Resolve ticket** with version 2: `409`, the warning, Resolved with no actions |
+| B6 Resolve | Session A: "Ticket #2 is resolved. The student will get an email."; the API returned Resolved, version 3, `resolvedAt` 23:37:12.467 UTC |
+| B7 Student refresh | A full page reload kept the session and showed Resolved with the resolution time and no edit or delete actions |
+| B8 Email | One email for #2, "Your helpdesk ticket #2 has been resolved", to `student1@uni.test` at 23:37:12.76 UTC, 0.3 s after resolving, with room C-112, category Projector, and the student's description |
+| Step 7 | Ticket row Resolved, version 3, room C-112, owner `student1@uni.test`; one `TicketResolved` row with `PublishedAt` 23:37:12.747 UTC, 0.28 s after `ResolvedAt` |
+
+### Swagger demo and student screens
+
 Rehearsed on 9 November 2026 on commit `7c0b1f8`, on the laptop described in
 [`verification-results.md`](verification-results.md), against the Compose
 stack started with `docker compose up -d --no-build --wait` from images built
@@ -405,15 +539,14 @@ The rehearsal found one wording problem: a resolved ticket said "This ticket
 is being handled." It now says "This ticket has been resolved.", and an
 in-progress ticket says "A technician is working on this ticket."
 
-**Not rehearsed:**
+### Not rehearsed
 
-- The whole student walkthrough with React sign-in instead of the harness.
-  Sign-in, the role guards, session expiry, and sign-out were checked on
-  their own against the same kind of stack; the full run waits for the
-  frontend to be served by Docker Compose.
-- The technician side in React as part of a full run. The ticket list,
-  details, both status changes, and a stale update from a second technician
-  session were checked on their own against the same kind of stack.
+- The browser demo by the team with a projector and typed passwords. The
+  10 November run was automated; click through it once by hand before the
+  defense.
+- The student tour's edit, ownership, and delete steps (S3 to S5) with React
+  sign-in. They were run with the development harness on 9 November; sign-in,
+  the role guards, session expiry, and sign-out were checked on their own.
 - The clicks in Swagger with a real login, **Authorize**, and two browser
   windows. The requests were the same, but they were sent by a script so that
   the passwords and tokens never appeared on screen or in any log. The team
@@ -421,4 +554,4 @@ in-progress ticket says "A technician is working on this ticket."
 - Rebuilding the images with the live change (`docker compose up --build`),
   because WSL had no DNS at the time.
 - Timing a full presentation with speakers; the 8 minutes above is an
-  estimate.
+  estimate. **Pending: a team action.**
