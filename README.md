@@ -8,9 +8,11 @@ classroom technology, such as projectors, computers, or network access, and
 technicians track those reports and mark them as resolved. When a ticket is
 resolved, the Notification Worker emails the student.
 
-This repository contains the backend: the Ticket API and the Notification
-Worker. A web frontend for students and technicians is planned but not built
-yet; until then, use the Swagger UI or the Postman collection described below.
+This repository contains the backend, which consists of the Ticket API and the
+Notification Worker, and a React web frontend for students and technicians in
+`frontend/`. The frontend is still being built: so far it has the app shell
+and placeholder screens. Until it is finished, use the Swagger UI or the
+Postman collection described below.
 
 The commands below are for Windows PowerShell and run from the repository root.
 
@@ -23,6 +25,7 @@ What you need depends on how you run the project:
 | Run everything in containers | Docker Engine with Docker Compose v2 |
 | Run the API and worker from source | .NET 10 SDK, plus Docker for the backing services |
 | Deploy to a local Kubernetes cluster | Docker, kind, and kubectl |
+| Run or build the frontend | Node.js 20.19 or later, or 22.12 or later, with npm |
 | Run the Postman collection from the command line | Node.js (for `npx newman`) |
 
 These are the versions the project was built and verified with:
@@ -34,6 +37,7 @@ These are the versions the project was built and verified with:
 | Docker Engine and Docker Compose | 29.9.3 and v5.7.0, inside WSL 2 (Ubuntu 22.04) on Windows 10 |
 | kind and kubectl | kind v0.33.0 (Kubernetes v1.37.0 node) and kubectl v1.37.2 |
 | Node.js and Newman | Node.js 22.20.0 and Newman 6 |
+| Frontend | React 19.3, React Router 7.18, Vite 8.3, and TypeScript 7.0, locked in `frontend/package-lock.json` |
 
 The services run as these images: `postgres:18.6-alpine`,
 `rabbitmq:4.1-management-alpine`, `redis:8.2-alpine`, `axllent/mailpit:v1.33`,
@@ -244,6 +248,34 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
 
    Swagger is at `http://localhost:5276/swagger`, and Mailpit at
    `http://localhost:58025`.
+
+## Run the frontend
+
+The frontend in `frontend/` is a React and TypeScript app built with Vite.
+So far it has the app shell, the routes `/login`, `/student/tickets`, and
+`/technician/tickets`, and placeholder screens; it does not call the API yet.
+Run the commands from the `frontend` folder:
+
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
+
+`npm ci` installs the exact versions from `package-lock.json`; run it again
+after pulling changes to that file. The development server is at
+`http://localhost:5173` and reloads the page when a file changes.
+
+To check and build for production:
+
+```powershell
+npm run build
+npm run preview
+```
+
+`npm run build` checks the TypeScript types and writes the site to
+`frontend/dist/`, which is ignored by Git. `npm run preview` serves that build
+at `http://localhost:4173`. `npm run lint` runs the linter.
 
 ## HTTPS
 
@@ -611,6 +643,7 @@ group member's contributions.
 | `benchmarks/`    | Load benchmark for the documented performance target          |
 | `database/init/` | Scripts PostgreSQL runs when its Compose volume is created    |
 | `deploy/`        | Configuration for the Compose gateway, and Kubernetes manifests in `deploy/kubernetes/` |
+| `frontend/`      | React web frontend for students and technicians (in progress) |
 | `tests/`         | Unit, integration, and recovery tests, and the Postman collection |
 | `docs/`          | Project documentation and requirements                        |
 | `scripts/`       | Packaging and clean-copy verification of the submission ZIP    |
