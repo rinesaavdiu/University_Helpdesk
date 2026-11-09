@@ -62,7 +62,10 @@ export function StudentTicketDetailPage() {
   function renderActions(current: Ticket) {
     if (current.status !== 'Open') {
       return (
-        <p className="field__hint">Only open tickets can be edited or deleted. This ticket is being handled.</p>
+        <p className="field__hint">
+          Only open tickets can be edited or deleted.{' '}
+          {current.status === 'Resolved' ? 'This ticket has been resolved.' : 'A technician is working on this ticket.'}
+        </p>
       )
     }
     if (confirmingDelete) {

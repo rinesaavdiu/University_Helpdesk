@@ -10,9 +10,9 @@ resolved, the Notification Worker emails the student.
 
 This repository contains the backend, which consists of the Ticket API and the
 Notification Worker, and a React web frontend for students and technicians in
-`frontend/`. The frontend is still being built: so far it has the app shell
-and placeholder screens. Until it is finished, use the Swagger UI or the
-Postman collection described below.
+`frontend/`. The frontend is still being built: the student screens are done,
+and sign-in and the technician screens are not. Until they are, use the
+Swagger UI or the Postman collection described below.
 
 The commands below are for Windows PowerShell and run from the repository root.
 
@@ -281,7 +281,10 @@ with a token you paste in. It is for development only and is not part of
 `npm run build`. Log in as a student with `POST /auth/login` in Swagger, copy
 the `accessToken` value, and paste it into the harness. The token is kept only
 in that browser tab's session storage until you select **Forget token** or
-close the tab; do not save it in a file.
+close the tab; do not save it in a file. The browser walkthrough of the
+student screens is in `docs/demo-runbook.md` ("Student screens in the
+browser"), and `docs/frontend-handoff.md` describes the student routes and
+how to connect them to sign-in.
 
 To check and build for production:
 
@@ -628,8 +631,9 @@ or ticket descriptions. See `docs/api-contract.md` for the metric names.
 
 `docs/presentation.md` holds the defense slides (Marp format; export with
 `npx @marp-team/marp-cli docs/presentation.md --pdf`), and
-`docs/demo-runbook.md` the step-by-step live demo, a practice exercise for a
-small live code change, and a record of the rehearsal.
+`docs/demo-runbook.md` the step-by-step live demo, the student screens
+walkthrough with screenshots, a practice exercise for a small live code
+change, and a record of the rehearsals.
 
 ## Submission package
 

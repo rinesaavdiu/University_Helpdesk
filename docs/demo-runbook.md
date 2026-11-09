@@ -10,9 +10,11 @@ The demo uses the Docker Compose system and takes about 8 minutes. The
 [rehearsal record](#rehearsal-record) at the end lists what was actually run
 before the defense and what was not.
 
-> **React frontend.** The browser walkthrough with the React frontend and its
-> screenshots will be added here once the frontend has been verified against
-> the real API. Until then, the demo uses Swagger.
+> **React frontend.** The student screens are built and were rehearsed in the
+> browser; see [Student screens in the browser](#student-screens-in-the-browser).
+> React sign-in and the technician screens are not built yet, so the main demo
+> below still uses Swagger, and the student walkthrough uses the development
+> harness.
 
 ## Before the defense
 
@@ -195,6 +197,85 @@ change, and `PublishedAt` was set once RabbitMQ confirmed the event.
 | No email after a few seconds | `docker compose logs worker --tail 20`. The event is not lost: it waits in the outbox or the queue. |
 | Swagger does not load at all | Run the same flow with the Postman collection: `npx newman run tests/postman/UniversityHelpdesk.postman_collection.json -e tests/postman/local.postman_environment.json` (see the README). |
 
+## Student screens in the browser
+
+The same story with the React student screens instead of the student's
+Swagger window. React sign-in is not built yet, so the student screens run in
+the development harness with a token from `POST /auth/login`, and the
+technician still uses Swagger. This needs the frontend development server
+(see "Run the frontend" in the README); the routes and the code that connects
+them to sign-in are described in [`frontend-handoff.md`](frontend-handoff.md).
+
+**Setup.**
+
+1. Start the system as above, then in `frontend/` run `npm ci` once and
+   `npm run dev`.
+2. In the student browser window, sign in as `student1@uni.test` in Swagger
+   (step 1 of the demo), copy the `accessToken`, open
+   `http://localhost:5173/dev-harness/`, paste the token, and select
+   **Use token**. The banner shows `student1@uni.test (Student)` and when the
+   token expires. Do not show the token or the login response on the
+   projector.
+3. In the private window, open `http://localhost:5173/dev-harness/` and do the
+   same with `student2@uni.test`. Each tab keeps its own token.
+4. The technician signs in to Swagger in a third window, or in the private
+   window after the student 2 check.
+
+**S1. Report an issue (student 1).** Select **Report an issue**, enter room,
+category, and description, and select **Report issue**. Expected: the new
+ticket opens with "Your issue was reported as ticket #&lt;id&gt;.", status
+**Open**, and **Edit ticket** and **Delete ticket** buttons. Leaving a field
+empty shows the error next to it, and the form keeps what was typed.
+
+![Report form](screenshots/student-01-report-form.png)
+![Reported ticket](screenshots/student-02-reported.png)
+
+**S2. Find it in the list.** Select **My tickets**. Expected: the ticket is at
+the top (newest first). Choose **Open** under **Status**: the URL becomes
+`/student/tickets?status=Open`, the count updates, and the ticket is still
+first. With more than 10 tickets, **Next** shows the following page.
+
+![Open tickets](screenshots/student-03-list-open.png)
+
+**S3. Edit it while it is open.** Open the ticket, select **Edit ticket**,
+change the description, and select **Save changes**. Expected: "Your changes
+were saved." and the new description. The form sends the ticket's version; if
+someone changed the ticket in the meantime, the student sees both versions
+and chooses whether to reapply their changes.
+
+![Edit form](screenshots/student-04-edit.png)
+
+**S4. Ownership (student 2).** In student 2's tab, open
+`#/student/tickets/<id>` for student 1's ticket. Expected: "Ticket not found.
+This ticket does not exist, or it was reported by another student." The API
+answers `404`, so student 2 cannot tell whether the ticket exists. Student 2's
+list does not include it.
+
+![Another student's ticket](screenshots/student-05-other-student.png)
+
+**S5. Delete a separate open ticket (student 1).** Report a second issue, then
+on its page select **Delete ticket**. Expected: a confirmation, "Delete ticket
+#&lt;id&gt;? This cannot be undone.", with **Delete ticket** and **Keep ticket**.
+Confirm: the list opens with "Ticket #&lt;id&gt; was deleted.", and the ticket is
+gone.
+
+![Delete confirmation](screenshots/student-06-delete-confirm.png)
+
+**S6. The technician resolves the first ticket (Swagger).** As in demo
+step 4, send `PATCH /tickets/{id}/status` with `InProgress` and then
+`Resolved`, each with the current version. Before taking a screenshot, close
+the **Authorize** dialog and keep the curl command off screen: it contains the
+token.
+
+![Resolving in Swagger](screenshots/student-07-swagger-resolve.png)
+
+**S7. The student sees Resolved.** Back in student 1's tab, refresh the
+ticket page. Expected: status **Resolved**, a **Resolved** time, no **Edit** or
+**Delete**, and "Only open tickets can be edited or deleted. This ticket has
+been resolved." The resolution email is in Mailpit as in demo step 6.
+
+![Resolved for the student](screenshots/student-08-resolved.png)
+
 ## Live-change exercise: filter tickets by room
 
 Section 12 says the teacher may ask for a small change during the defense,
@@ -301,8 +382,36 @@ could not resolve `mcr.microsoft.com` at the time).
 | Live-change exercise | Steps 1 to 4 in a temporary copy of the repository, discarded afterwards | Built in 33 s with 0 errors. Against a local `helpdesk_test` database, 13 selected tests passed, including the two new ones; the whole ordinary suite passed (API 87 passed and 18 skipped, worker 14 passed) |
 | Live change in Swagger | The changed API run from source on `http://localhost:5276`, next to the Compose stack | `GET /tickets?room=B-204` as student 1 returned 2 of their 3 tickets, both in `B-204`; a 51-character room returned `400`; Swagger listed the `room` parameter with a maximum length of 50 |
 
+**Student screens in the browser.** Rehearsed on 9 November 2026 on commit
+`ec709fe` plus the wording fix for resolved tickets in the same change, with
+`npm run dev` forwarding to a separate Compose stack started by
+`scripts/verify-compose.sh` from a fresh `.env` and new volumes (gateway on
+port `48080`, Mailpit on `48025`). The student screens ran in the development
+harness and the technician used Swagger; React sign-in and the technician
+screens are not built yet, so they were not part of it. Tokens came from
+`POST /auth/login` and went straight into the browser tab, without being
+shown, copied into a file, or logged. Student 1 already had 19 tickets from
+earlier checks.
+
+| Step | Result |
+| ---- | ------ |
+| S1 Report | Ticket `#24` (B-310, Projector) created, opened with "Your issue was reported as ticket #24.", status Open, version 1 |
+| S2 List | 20 tickets, `#24` first; with **Open**, 15 tickets and `#24` first |
+| S3 Edit | Description changed; "Your changes were saved."; the API returned version 2 with the new text |
+| S4 Ownership | Student 2 got "Ticket not found" for `#24` on both the detail and edit routes; their list showed only `#16` and `#15` |
+| S5 Delete | Ticket `#25` (A-105, Network) reported, confirmation shown, deleted; list showed "Ticket #25 was deleted." and the API returned `404` for it |
+| S6 Swagger | `InProgress` with version 2: `200`, version 3; `Resolved` with version 3: `200`, version 4, `resolvedAt` set |
+| S7 Refresh | `#24` showed Resolved with the resolution time and no edit or delete actions. The email "Your helpdesk ticket #24 has been resolved" reached `student1@uni.test` in Mailpit 0.5 s after resolving |
+
+The rehearsal found one wording problem: a resolved ticket said "This ticket
+is being handled." It now says "This ticket has been resolved.", and an
+in-progress ticket says "A technician is working on this ticket."
+
 **Not rehearsed:**
 
+- The student walkthrough with React sign-in instead of a pasted token, and
+  the technician side in React. Both wait for the sign-in and technician
+  screens.
 - The clicks in Swagger with a real login, **Authorize**, and two browser
   windows. The requests were the same, but they were sent by a script so that
   the passwords and tokens never appeared on screen or in any log. The team
@@ -311,4 +420,3 @@ could not resolve `mcr.microsoft.com` at the time).
   because WSL had no DNS at the time.
 - Timing a full presentation with speakers; the 8 minutes above is an
   estimate.
-- The React walkthrough, which will be added after the frontend is verified.
