@@ -1,6 +1,5 @@
 import { Link } from 'react-router'
 import { EmptyState } from '../components/StatusStates'
-import { paths } from '../routes'
 
 export function NotFoundPage() {
   return (
@@ -8,8 +7,8 @@ export function NotFoundPage() {
       <EmptyState
         title="Page not found"
         action={
-          <Link to={paths.login} className="button">
-            Go to sign in
+          <Link to="/" className="button">
+            Go to the start page
           </Link>
         }
       >

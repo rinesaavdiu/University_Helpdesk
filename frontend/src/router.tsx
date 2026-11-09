@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter } from 'react-router'
+import { HomeRedirect, RequireRole } from './auth/RequireRole'
 import { AppLayout } from './layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -15,10 +16,13 @@ export const router = createBrowserRouter([
         // Pathless so that a render error is shown inside the layout, not instead of it.
         errorElement: <RouteErrorPage />,
         children: [
-          { index: true, element: <Navigate to={paths.login} replace /> },
+          { index: true, element: <HomeRedirect /> },
           { path: paths.login, element: <LoginPage /> },
-          ...studentRoutes,
-          { path: paths.technicianTickets, element: <TechnicianTicketsPage /> },
+          { element: <RequireRole role="Student" />, children: studentRoutes },
+          {
+            element: <RequireRole role="Technician" />,
+            children: [{ path: paths.technicianTickets, element: <TechnicianTicketsPage /> }],
+          },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

@@ -1,14 +1,14 @@
-# Frontend handoff: student screens
+# Frontend handoff: student screens and sign-in
 
 The student screens in `frontend/` are finished and were checked in the
 browser against the real API (see the student walkthrough in
 [`demo-runbook.md`](demo-runbook.md#student-screens-in-the-browser)). They do
-not depend on sign-in: they get every ticket and category through one small
-interface, and the code that sends requests is in one file. This page lists
-what the sign-in, technician, and Compose work needs to connect to.
+not depend on sign-in directly: they get every ticket and category through one
+small interface, and the code that sends requests is in one file. Sign-in,
+the session, and the role guards are now connected to that file.
 
-Still to build (Domenika): the sign-in screen and session, role guards, the
-technician dashboard, and serving the frontend from Docker Compose.
+Still to build: the technician dashboard and serving the frontend from Docker
+Compose.
 
 ## Student routes
 
@@ -24,17 +24,40 @@ helpers instead of writing paths by hand.
 | `/student/tickets/:ticketId/edit` | `EditTicketPage` | Edits an open ticket. Sends only the changed fields plus `version`; on `409` it reloads the ticket and lets the student reapply or discard their changes. |
 
 `frontend/src/studentRoutes.tsx` exports these as `studentRoutes`
-(a `RouteObject[]`), and `frontend/src/router.tsx` spreads them into the app
-router under `AppLayout`. To protect them, wrap the array in a guard route
-instead of editing each page:
+(a `RouteObject[]`), and `frontend/src/router.tsx` wraps them in a guard
+route instead of protecting each page:
 
 ```tsx
 { element: <RequireRole role="Student" />, children: studentRoutes },
 ```
 
-`RequireRole` is yours to write: render `<Outlet />` for a signed-in student,
-otherwise redirect to `paths.login`. `homePathByRole` in `routes.ts` gives the
-page to open after sign-in for each role.
+`RequireRole` (`frontend/src/auth/RequireRole.tsx`) renders the child routes
+for a signed-in user with that role. A signed-out visitor goes to `/login`,
+and the page they asked for is passed along so sign-in can return to it. A
+signed-in user with the other role sees "Not allowed" with a link to their own
+tickets. The technician routes use the same guard with `role="Technician"`.
+`homePathByRole` in `routes.ts` gives each role's start page, which `/` and
+sign-in open.
+
+## Session
+
+`frontend/src/auth/session.ts` holds the session: the access token, its
+expiry time, and the user from `POST /auth/login`. Components read it with
+`useSession()`; code outside React uses `getSession()`. `startSession` and
+`endSession('signedOut' | 'expired')` change it.
+
+- It is stored in the tab's `sessionStorage`, so a refresh keeps the user
+  signed in, a new tab signs in separately, and closing the tab signs out.
+- The API has no refresh tokens, so a session lasts as long as the token, 60
+  minutes. A timer ends it at the expiry time, and a `401` on any request
+  made while signed in also ends it. The guard then sends the user to
+  `/login`, which says "Your session has expired" and returns them to the
+  page afterwards.
+- A stored session that has already expired when the page loads is dropped
+  the same way.
+- `sessionStorage` can be read by scripts on the page, like any
+  browser-side token store; the app renders all API text as plain text and
+  loads no third-party scripts.
 
 ## `StudentTicketApi`
 
@@ -66,25 +89,22 @@ All requests go through one function type in `frontend/src/api/http.ts`:
 type ApiRequest = (path: string, init?: RequestInit) => Promise<Response>
 ```
 
-`frontend/src/api/appApi.ts` builds the app's instance. Today it sends no
-token, which is why the app shows "Sign in required":
+`frontend/src/api/appApi.ts` builds the app's one authenticated client. It
+adds `Authorization: Bearer <token>` from the session through
+`getAccessToken`, and ends the session on a `401`:
 
 ```ts
-export const apiRequest: ApiRequest = createFetchRequest({ baseUrl: apiBaseUrl })
+const fetchRequest = createFetchRequest({
+  baseUrl: apiBaseUrl,
+  getAccessToken: () => getSession()?.accessToken ?? null,
+})
+export const apiRequest: ApiRequest = async (path, init) => { /* fetchRequest, then endSession('expired') on 401 */ }
 export const studentTicketApi = createStudentTicketApi(apiRequest)
 ```
 
-To connect sign-in, replace `apiRequest` with your authenticated client.
-`createFetchRequest` already accepts `getAccessToken`, which adds
-`Authorization: Bearer <token>`:
-
-```ts
-export const apiRequest = createFetchRequest({ baseUrl: apiBaseUrl, getAccessToken: () => session.accessToken })
-```
-
-If the client should also react to an expired token (for example, sign the
-user out and go to `/login` on `401`), wrap the request function; the student
-pages need no change. The technician dashboard can reuse `apiRequest` and
+The sign-in page calls `login(apiRequest, email, password)` from
+`frontend/src/api/authApi.ts`; with no session it sends no token. The student
+pages did not change. The technician dashboard should reuse `apiRequest` and
 `requestJson` with its own interface in the same style.
 
 ## API address
@@ -96,15 +116,10 @@ serve the built `frontend/dist/` behind a proxy that does the same, or build
 with `VITE_API_BASE_URL` set to the API's address (the API would then need
 CORS for that origin).
 
-## Development harness
+## Development harness (removed)
 
-`frontend/dev-harness/` serves the student routes with a pasted student token
-at `http://localhost:5173/dev-harness/` (`npm run dev` only; it is not in
-`npm run build`, and `frontend/dist/` contains none of it). It keeps the token
-in that tab's session storage, uses a hash router, and supplies its own
-`StudentTicketApi` built from `createFetchRequest` with `getAccessToken`, the
-same way the real client will. Once sign-in works in the app, the harness can
-be deleted together with the `dev-harness` entry in
-`frontend/tsconfig.app.json` and the harness paragraph in the README.
+Before sign-in existed, `frontend/dev-harness/` showed the student screens
+with a pasted token. It was removed when the React sign-in replaced it; sign
+in at `/login` instead.
 
 Never commit a token or password, and hide them before taking screenshots.

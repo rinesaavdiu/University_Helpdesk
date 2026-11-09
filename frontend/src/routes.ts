@@ -27,3 +27,18 @@ export const homePathByRole: Record<Role, string> = {
   Student: paths.studentTickets,
   Technician: paths.technicianTickets,
 }
+
+const areaByRole: Record<Role, string> = {
+  Student: '/student/',
+  Technician: '/technician/',
+}
+
+/** Whether a signed-in user with this role may open the path; used to return after sign-in. */
+export function canVisit(role: Role, path: string): boolean {
+  return path.startsWith(areaByRole[role])
+}
+
+/** Router state for the sign-in page: the page the user tried to open. */
+export type LoginLocationState = {
+  from?: string
+}

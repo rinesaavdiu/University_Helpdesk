@@ -10,11 +10,10 @@ The demo uses the Docker Compose system and takes about 8 minutes. The
 [rehearsal record](#rehearsal-record) at the end lists what was actually run
 before the defense and what was not.
 
-> **React frontend.** The student screens are built and were rehearsed in the
-> browser; see [Student screens in the browser](#student-screens-in-the-browser).
-> React sign-in and the technician screens are not built yet, so the main demo
-> below still uses Swagger, and the student walkthrough uses the development
-> harness.
+> **React frontend.** React sign-in and the student screens are built; see
+> [Student screens in the browser](#student-screens-in-the-browser). The
+> technician screens are not built yet, so the main demo below still uses
+> Swagger, and so does the technician part of the student walkthrough.
 
 ## Before the defense
 
@@ -200,24 +199,20 @@ change, and `PublishedAt` was set once RabbitMQ confirmed the event.
 ## Student screens in the browser
 
 The same story with the React student screens instead of the student's
-Swagger window. React sign-in is not built yet, so the student screens run in
-the development harness with a token from `POST /auth/login`, and the
-technician still uses Swagger. This needs the frontend development server
-(see "Run the frontend" in the README); the routes and the code that connects
-them to sign-in are described in [`frontend-handoff.md`](frontend-handoff.md).
+Swagger window. The technician screens are not built yet, so the technician
+still uses Swagger. This needs the frontend development server (see "Run the
+frontend" in the README); the routes, the session, and the API client are
+described in [`frontend-handoff.md`](frontend-handoff.md).
 
 **Setup.**
 
 1. Start the system as above, then in `frontend/` run `npm ci` once and
    `npm run dev`.
-2. In the student browser window, sign in as `student1@uni.test` in Swagger
-   (step 1 of the demo), copy the `accessToken`, open
-   `http://localhost:5173/dev-harness/`, paste the token, and select
-   **Use token**. The banner shows `student1@uni.test (Student)` and when the
-   token expires. Do not show the token or the login response on the
-   projector.
-3. In the private window, open `http://localhost:5173/dev-harness/` and do the
-   same with `student2@uni.test`. Each tab keeps its own token.
+2. In the student browser window, open `http://localhost:5173` and sign in as
+   `student1@uni.test`. The header shows "Demo Student One, Student" and
+   **Sign out**.
+3. In the private window, open `http://localhost:5173` and sign in as
+   `student2@uni.test`. Each tab keeps its own session.
 4. The technician signs in to Swagger in a third window, or in the private
    window after the student 2 check.
 
@@ -246,7 +241,7 @@ and chooses whether to reapply their changes.
 ![Edit form](screenshots/student-04-edit.png)
 
 **S4. Ownership (student 2).** In student 2's tab, open
-`#/student/tickets/<id>` for student 1's ticket. Expected: "Ticket not found.
+`http://localhost:5173/student/tickets/<id>` for student 1's ticket. Expected: "Ticket not found.
 This ticket does not exist, or it was reported by another student." The API
 answers `404`, so student 2 cannot tell whether the ticket exists. Student 2's
 list does not include it.
@@ -387,8 +382,9 @@ could not resolve `mcr.microsoft.com` at the time).
 `npm run dev` forwarding to a separate Compose stack started by
 `scripts/verify-compose.sh` from a fresh `.env` and new volumes (gateway on
 port `48080`, Mailpit on `48025`). The student screens ran in the development
-harness and the technician used Swagger; React sign-in and the technician
-screens are not built yet, so they were not part of it. Tokens came from
+harness (since replaced by React sign-in, which is why the screenshots show
+its yellow banner instead of the header) and the technician used Swagger;
+React sign-in and the technician screens were not built yet. Tokens came from
 `POST /auth/login` and went straight into the browser tab, without being
 shown, copied into a file, or logged. Student 1 already had 19 tickets from
 earlier checks.
@@ -409,9 +405,11 @@ in-progress ticket says "A technician is working on this ticket."
 
 **Not rehearsed:**
 
-- The student walkthrough with React sign-in instead of a pasted token, and
-  the technician side in React. Both wait for the sign-in and technician
-  screens.
+- The whole student walkthrough with React sign-in instead of the harness.
+  Sign-in, the role guards, session expiry, and sign-out were checked on
+  their own against the same kind of stack; the full run waits for the
+  technician screens.
+- The technician side in React, which is not built yet.
 - The clicks in Swagger with a real login, **Authorize**, and two browser
   windows. The requests were the same, but they were sent by a script so that
   the passwords and tokens never appeared on screen or in any log. The team

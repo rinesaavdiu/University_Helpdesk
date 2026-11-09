@@ -10,8 +10,8 @@ resolved, the Notification Worker emails the student.
 
 This repository contains the backend, which consists of the Ticket API and the
 Notification Worker, and a React web frontend for students and technicians in
-`frontend/`. The frontend is still being built: the student screens are done,
-and sign-in and the technician screens are not. Until they are, use the
+`frontend/`. The frontend is still being built: sign-in and the student
+screens are done, and the technician screens are not. Until they are, use the
 Swagger UI or the Postman collection described below.
 
 The commands below are for Windows PowerShell and run from the repository root.
@@ -252,13 +252,13 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
 ## Run the frontend
 
 The frontend in `frontend/` is a React and TypeScript app built with Vite.
-So far it has the app shell, the student screens (the ticket list, ticket
-details with edit and delete for open tickets, and the issue report form, at
-`/student/tickets`, `/student/tickets/{id}`, `/student/tickets/{id}/edit`, and
-`/student/tickets/new`), and placeholders for
-`/login` and `/technician/tickets`. Sign-in is not built yet, so in the app
-the student screens show "Sign in required"; use the student screens harness
-below to try them. Run the commands from the `frontend` folder:
+So far it has sign-in at `/login`, the student screens (the ticket list,
+ticket details with edit and delete for open tickets, and the issue report
+form, at `/student/tickets`, `/student/tickets/{id}`,
+`/student/tickets/{id}/edit`, and `/student/tickets/new`), and a placeholder
+for `/technician/tickets`. Sign in with one of the demo accounts created
+when the system starts (see "Run everything with Docker Compose" above). Run the
+commands from the `frontend` folder:
 
 ```powershell
 cd frontend
@@ -275,16 +275,18 @@ forward those requests to the API at `http://127.0.0.1:58080`, the Compose
 gateway. To use another API, set `HELPDESK_API_URL` before starting, for
 example `$env:HELPDESK_API_URL = "http://localhost:5276"` for `dotnet run`.
 
-**Student screens harness.** Until sign-in is built, `npm run dev` also serves
-`http://localhost:5173/dev-harness/`, which shows the real student screens
-with a token you paste in. It is for development only and is not part of
-`npm run build`. Log in as a student with `POST /auth/login` in Swagger, copy
-the `accessToken` value, and paste it into the harness. The token is kept only
-in that browser tab's session storage until you select **Forget token** or
-close the tab; do not save it in a file. The browser walkthrough of the
-student screens is in `docs/demo-runbook.md` ("Student screens in the
-browser"), and `docs/frontend-handoff.md` describes the student routes and
-how to connect them to sign-in.
+**Sign-in and sessions.** Students and technicians sign in at `/login` and
+go to their own ticket pages; each role's pages are closed to the other role,
+and every page except `/login` needs a session. The session is kept in the
+browser tab's session storage, so refreshing the page keeps you signed in,
+while a new tab or window signs in separately and closing the tab signs you
+out. The API's tokens last 60 minutes and cannot be renewed: when one
+expires, or the API answers `401`, the app returns to the sign-in page with
+"Your session has expired", and after signing in again it reopens the page
+you were on. **Sign out** in the header ends the session in that tab. The
+browser walkthrough of the student screens is in `docs/demo-runbook.md`
+("Student screens in the browser"), and `docs/frontend-handoff.md` describes
+the routes, the session, and the API client.
 
 To check and build for production:
 
