@@ -3,9 +3,9 @@ import { AppLayout } from './layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { RouteErrorPage } from './pages/RouteErrorPage'
-import { StudentTicketsPage } from './pages/StudentTicketsPage'
 import { TechnicianTicketsPage } from './pages/TechnicianTicketsPage'
 import { paths } from './routes'
+import { studentRoutes } from './studentRoutes'
 
 export const router = createBrowserRouter([
   {
@@ -17,7 +17,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to={paths.login} replace /> },
           { path: paths.login, element: <LoginPage /> },
-          { path: paths.studentTickets, element: <StudentTicketsPage /> },
+          ...studentRoutes,
           { path: paths.technicianTickets, element: <TechnicianTicketsPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],

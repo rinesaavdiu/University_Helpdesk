@@ -1,0 +1,36 @@
+.harness-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  background: #fff4ce;
+  border-bottom: 1px solid #e0c35a;
+  font-size: 0.875rem;
+}
+
+.harness-bar__session,
+.harness-bar__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.harness-bar__form input {
+  min-width: 14rem;
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+}
+
+.harness-bar__button {
+  padding: 0.25rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.harness-hint {
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}

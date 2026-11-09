@@ -252,9 +252,11 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
 ## Run the frontend
 
 The frontend in `frontend/` is a React and TypeScript app built with Vite.
-So far it has the app shell, the routes `/login`, `/student/tickets`, and
-`/technician/tickets`, and placeholder screens; it does not call the API yet.
-Run the commands from the `frontend` folder:
+So far it has the app shell, the student ticket list and ticket details
+(`/student/tickets` and `/student/tickets/{id}`), and placeholders for
+`/login` and `/technician/tickets`. Sign-in is not built yet, so in the app
+the student screens show "Sign in required"; use the student screens harness
+below to try them. Run the commands from the `frontend` folder:
 
 ```powershell
 cd frontend
@@ -265,6 +267,19 @@ npm run dev
 `npm ci` installs the exact versions from `package-lock.json`; run it again
 after pulling changes to that file. The development server is at
 `http://localhost:5173` and reloads the page when a file changes.
+
+The app calls the API under `/api`, and the development and preview servers
+forward those requests to the API at `http://127.0.0.1:58080`, the Compose
+gateway. To use another API, set `HELPDESK_API_URL` before starting, for
+example `$env:HELPDESK_API_URL = "http://localhost:5276"` for `dotnet run`.
+
+**Student screens harness.** Until sign-in is built, `npm run dev` also serves
+`http://localhost:5173/dev-harness/`, which shows the real student screens
+with a token you paste in. It is for development only and is not part of
+`npm run build`. Log in as a student with `POST /auth/login` in Swagger, copy
+the `accessToken` value, and paste it into the harness. The token is kept only
+in that browser tab's session storage until you select **Forget token** or
+close the tab; do not save it in a file.
 
 To check and build for production:
 
