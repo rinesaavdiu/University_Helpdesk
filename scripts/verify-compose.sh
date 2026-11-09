@@ -11,6 +11,7 @@
 #   COMPOSE_PROJECT=helpdesk-verify  project name for the containers and volumes
 #   PORT_PREFIX=4                    host ports become 4xxxx (45432, 48080, ...), apart from the defaults
 #   USE_CACHED_IMAGES=1              start with existing university-helpdesk-*:local images instead of building
+#   FRESH_IMAGES=1                   build the api, worker, and gateway images with --no-cache --pull first
 #   KEEP_RUNNING=1                   leave the system running and keep .env
 # Requires Docker with Compose v2, curl, jq, and openssl.
 set -euo pipefail
@@ -61,6 +62,13 @@ trap cleanup EXIT
 start=$(date +%s)
 if [[ ${USE_CACHED_IMAGES:-} == 1 ]]; then
   echo "Starting with the cached images (no build)."
+  "${compose[@]}" up -d --no-build --wait > /dev/null || fail "docker compose up --no-build"
+elif [[ ${FRESH_IMAGES:-} == 1 ]]; then
+  echo "Building the api, worker, and gateway images without the build cache, pulling the base images."
+  "${compose[@]}" build --no-cache --pull api worker gateway > /dev/null || fail "docker compose build --no-cache --pull"
+  for image in api worker gateway; do
+    docker image inspect --format "  university-helpdesk-$image:local {{.Id}} created {{.Created}}" "university-helpdesk-$image:local"
+  done
   "${compose[@]}" up -d --no-build --wait > /dev/null || fail "docker compose up --no-build"
 else
   echo "Building the images and starting."

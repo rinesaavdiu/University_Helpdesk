@@ -79,7 +79,8 @@ else {
                 $pdf = Join-Path $staging 'presentation.pdf'
                 # Marp logs progress to stderr, which Windows PowerShell 5.1 would treat as an error.
                 $ErrorActionPreference = 'Continue'
-                npx --yes @marp-team/marp-cli@4 docs/presentation.md --pdf --output $pdf 2>&1 | Out-Null
+                # --allow-local-files lets the slides embed the screenshots in docs/screenshots/.
+                npx --yes @marp-team/marp-cli@4 docs/presentation.md --pdf --allow-local-files --output $pdf 2>&1 | Out-Null
                 $ErrorActionPreference = 'Stop'
                 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $pdf)) { throw 'Exporting docs/presentation.pdf failed.' }
                 $generated['docs/presentation.pdf'] = $pdf
@@ -119,6 +120,8 @@ try {
         'Source code'                    = 'UniversityHelpdesk.slnx', 'backend/UniversityHelpdesk.Api/Program.cs',
                                            'backend/UniversityHelpdesk.NotificationWorker/Program.cs',
                                            'benchmarks/UniversityHelpdesk.Benchmark/Program.cs'
+        'Frontend source'                = 'frontend/package.json', 'frontend/package-lock.json', 'frontend/index.html',
+                                           'frontend/src/main.tsx', 'frontend/vite.config.ts', 'frontend/Dockerfile'
         'Configuration and run scripts'  = '.env.example', 'compose.yaml', 'deploy/gateway.conf',
                                            'deploy/kubernetes/infrastructure/secrets.env.example',
                                            'backend/UniversityHelpdesk.Api/appsettings.json',
@@ -129,7 +132,10 @@ try {
         'Database schema and init'       = 'database/schema.sql', 'database/init/01-create-test-database.sql'
         'Tests and evidence'             = 'tests/postman/UniversityHelpdesk.postman_collection.json',
                                            'tests/postman/helpdesk.postman_environment.example.json',
-                                           'docs/test-cases.md', 'docs/verification-results.md', 'docs/benchmark-results.md'
+                                           'docs/test-cases.md', 'docs/verification-results.md', 'docs/benchmark-results.md',
+                                           'docs/screenshots/flow-02-student-reported.png',
+                                           'docs/screenshots/flow-07-technician-resolved.png',
+                                           'docs/screenshots/flow-09-mailpit-email.png'
         'README and documentation'       = 'README.md', 'docs/requirements.md', 'docs/design.md', 'docs/api-contract.md'
         'Presentation and defense'       = 'docs/presentation.md', 'docs/demo-runbook.md', 'docs/submission-checklist.md'
         'Sources and AI disclosure'      = @('docs/sources-and-contributions.md')
@@ -154,10 +160,6 @@ try {
         -not (Read-Entry 'docs/sources-and-contributions.md').Contains('## AI assistance')) {
         $failures.Add('docs/sources-and-contributions.md: no "AI assistance" section')
     }
-    if ($files -match '^frontend/' -and 'frontend/package.json' -notin $files) {
-        $failures.Add('frontend/: no package.json')
-    }
-
     $excluded = [ordered]@{
         'Git metadata'               = '(^|/)\.git(/|$)'
         'Local environment files'    = '(^|/)\.env$|(^|/)\.env\.(?!example$)[^/]+$|(^|/)secrets\.env$|\.postman_environment\.json$'

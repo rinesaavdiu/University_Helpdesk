@@ -482,7 +482,16 @@ Cursor browser automation tool, one tab per session: the student, technician
 session A, and technician session B. Passwords were filled into the sign-in
 form by a local helper without being shown, and no token was displayed or
 logged. Apart from signing in, every page ran under the gateway's Content
-Security Policy.
+Security Policy; for signing in, the policy was switched off briefly in the
+browser so that the helper could pass the password.
+
+**Sign-in with the policy enforced throughout.** Repeated afterwards on the
+same stack in new tabs, where the policy was never switched off. The helper
+passed the password through the tab's `window.name`, so the app page made no
+request to it. Student 1 and technician 1 both signed in (`POST
+/api/auth/login` `200`, then **My tickets** and **All tickets**) with
+0 policy violations, and a request from the page to Mailpit's origin was
+blocked by `connect-src` before and after signing in (test case TC-43).
 
 | Step | Result |
 | ---- | ------ |

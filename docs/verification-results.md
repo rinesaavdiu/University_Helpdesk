@@ -21,10 +21,10 @@ WSL 2 (Ubuntu 22.04). Clients on Windows used .NET SDK 10 (runtime 10.0.14).
 | Postman collection (Newman, through the Compose gateway) | All requests and assertions pass | 27 of 27 passed | 8 Nov 2026 |
 | Compose deployment | Healthy services, email delivered, data persists | Met; see below | 8 Nov 2026 |
 | Web frontend through the Compose gateway | Direct links and refreshes work; a student reports a ticket, a technician resolves it, the student sees it, and the email matches; wrong roles and stale updates are refused | Met; see below | 10 Nov 2026 |
-| Kubernetes deployment (local kind cluster) | Ordered start-up, end-to-end flow, data persists | Met; see below | 8 Nov 2026 |
+| Kubernetes deployment of the backend (local kind cluster; the web app is not part of it) | Ordered start-up, end-to-end flow, data persists | Met; see below | 8 Nov 2026 |
 | Local HTTPS (`--launch-profile https`) | HTTPS served, HTTP redirected | Met with an untrusted development certificate; see TC-34 | 9 Nov 2026 |
-| GitHub Actions | Both jobs pass on push to `main` | 5 of 5 runs succeeded | 9 Nov 2026 |
-| Clean, extracted submission package starts and passes its checks (NFR-M3) | Health checks pass from the extracted copy | Build, ordinary tests, and the Compose start and core flow passed from the extracted copy, but with images built earlier from the repository; building the images from the package was blocked by DNS. See below | Partly met, 9 Nov 2026; fresh image build open |
+| GitHub Actions | Every job passes on push to `main` | 17 of 17 runs succeeded, up to `ef61cb1`; the frontend job since `dfa9d19` | 9 and 10 Nov 2026 |
+| Clean, extracted submission package starts and passes its checks (NFR-M3) | Health checks pass from the extracted copy | Build, ordinary tests, and the Compose start and core flow passed from the extracted copy, but with images built earlier from the repository; building the images from the package was blocked by DNS. See below | Partly met, 9 Nov 2026. On 10 Nov, images were built from a `git archive` of `dfa9d19`; the final package is checked with `-FreshImages` after its commit |
 | NFR-P1: `GET /tickets` p95 under 300 ms | Under 300 ms | 76.5 to 133.0 ms over 7 runs | 8 and 9 Nov 2026 |
 | Category cache speedup | Warm reads faster than cold reads | Not demonstrated for this workload | 8 Nov 2026 |
 
@@ -97,7 +97,9 @@ TC-42, walkthrough and screenshots in
 [`demo-runbook.md`](demo-runbook.md#the-demo-in-the-browser)):
 
 - The production build ran under the gateway's Content Security Policy with no
-  violations. Direct links and refreshes of student and technician pages kept
+  violations, apart from the sign-in, where the policy was briefly switched
+  off in the browser to fill in the password; the sign-in was then repeated
+  with the policy enforced (below). Direct links and refreshes of student and technician pages kept
   the session and the filter and page from the URL.
 - The API answered the same with and without `/api`: health `200`, protected
   routes `401` without a token, a wrong password `401`, an empty login `400`.
@@ -117,7 +119,20 @@ TC-42, walkthrough and screenshots in
   and description; its `TicketResolved` row had `PublishedAt` 0.28 s after
   `ResolvedAt`.
 
-**Kubernetes** (local kind cluster `university-helpdesk`, 8 November 2026):
+**Sign-in under the Content Security Policy** (10 November 2026, the same
+stack). In the run above, the policy was switched off briefly in the browser
+while the password was filled in. The sign-in was therefore repeated in new
+tabs with the policy enforced from page load to the signed-in page: as
+student 1 and as technician 1, `POST /api/auth/login` returned `200` and the
+app opened **My tickets** and **All tickets**, with 0 policy violations, and a
+request to another origin (Mailpit) was blocked by `connect-src` before and
+after signing in (TC-43). The gateway sent `default-src 'self'; img-src 'self'
+data:; object-src 'none'; base-uri 'self'; form-action 'self';
+frame-ancestors 'none'`.
+
+**Kubernetes** (local kind cluster `university-helpdesk`, 8 November 2026;
+the backend only, as the manifests in `deploy/kubernetes/` contain no
+frontend):
 
 - The `db-init` Job applied the 3 migrations and created the demo accounts
   before the API started. Both API pods and the worker became ready with 0
@@ -139,15 +154,33 @@ replaced with `***`.
 
 Every run of [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) so far
 was triggered by a push to `main`, ran on `ubuntu-24.04`, and succeeded on the
-first attempt. Times are UTC on 9 November 2026.
+first attempt: 17 of 17 runs up to commit `ef61cb1`. Times are UTC on
+9 November 2026 (in local time, UTC+1, the last runs were on 10 November).
+The "Frontend and gateway" job was added in commit `dfa9d19`.
 
-| Run | Tested commit | Duration | Build and test | Kubernetes smoke test |
-| --- | ------------- | -------- | -------------- | --------------------- |
-| [42689715455](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42689715455) | `f4875fb8c0c5d86f50756936cc0b34eb739d8061` | 20:06:18 to 20:09:32 | Passed in 55 s | Passed in 2 min 7 s |
-| [42690701136](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42690701136) | `da59588be70216e07f3f2a0f2457c178f9932081` | 20:12:22 to 20:15:10 | Passed in 32 s | Passed in 2 min 10 s |
-| [42694031970](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42694031970) | `4bf38b0c67b753f0c0313a888a136e223d301831` | 20:33:07 to 20:35:44 | Passed | Passed |
-| [42696574964](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42696574964) | `4804f4750f8934fe9b4e9f92c8d1cc681b6f2db5` | 20:49:12 to 20:52:11 | Passed | Passed |
-| [42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387) | `7c0b1f8b29265040e805a480ab1e05bd1cc1c908` | 20:56:36 to 20:59:21 | Passed | Passed |
+| Run | Tested commit | Duration | Build and test | Kubernetes smoke test | Frontend and gateway |
+| --- | ------------- | -------- | -------------- | --------------------- | -------------------- |
+| [42689715455](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42689715455) | `f4875fb8c0c5d86f50756936cc0b34eb739d8061` | 20:06:18 to 20:09:32 | Passed in 55 s | Passed in 2 min 7 s | — |
+| [42690701136](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42690701136) | `da59588be70216e07f3f2a0f2457c178f9932081` | 20:12:22 to 20:15:10 | Passed in 32 s | Passed in 2 min 10 s | — |
+| [42694031970](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42694031970) | `4bf38b0c67b753f0c0313a888a136e223d301831` | 20:33:07 to 20:35:44 | Passed | Passed | — |
+| [42696574964](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42696574964) | `4804f4750f8934fe9b4e9f92c8d1cc681b6f2db5` | 20:49:12 to 20:52:11 | Passed | Passed | — |
+| [42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387) | `7c0b1f8b29265040e805a480ab1e05bd1cc1c908` | 20:56:36 to 20:59:21 | Passed | Passed | — |
+| [42700365739](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42700365739) | `b29c149822461060e371bf0294ade4ffc337864c` | 21:12:56 to 21:15:43 | Passed | Passed | — |
+| [42706050725](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42706050725) | `37d8ee2c16a2b9f3c4a8817303eee03a6b7e6291` | 21:48:57 to 21:51:40 | Passed | Passed | — |
+| [42711530547](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42711530547) | `e0941b730794d699da7a7fdbe48a490d5af589ae` | 22:24:04 to 22:27:04 | Passed | Passed | — |
+| [42713317978](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42713317978) | `8d15526d7e659976794483e99cdb3aff2c634b3d` | 22:35:58 to 22:39:08 | Passed | Passed | — |
+| [42713895534](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42713895534) | `d9a33d38b9c0ad0daa0019d8410f90204a9524e5` | 22:39:59 to 22:42:36 | Passed | Passed | — |
+| [42715371433](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42715371433) | `ec709fe098a0a75bb31baf271e481b437aa1d2ef` | 22:50:09 to 22:52:46 | Passed | Passed | — |
+| [42716473657](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42716473657) | `4f8e37eacd1cc176eb55592f48d433fd75339ca7` | 22:57:57 to 23:00:41 | Passed | Passed | — |
+| [42717699563](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42717699563) | `b53ab9d7eb1bc58f5a2bac9bad1deccc1f6bec9f` | 23:06:36 to 23:09:40 | Passed | Passed | — |
+| [42718512661](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42718512661) | `675a677cf36970ac9963bd14337c783861565c57` | 23:12:15 to 23:15:10 | Passed | Passed | — |
+| [42719063225](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42719063225) | `1e02c3caf6ca5a810a9b29353bab80493c7ee1a0` | 23:16:11 to 23:18:54 | Passed | Passed | — |
+| [42721201517](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42721201517) | `dfa9d198c4946900b565191d5c858aae457efedb` | 23:31:57 to 23:34:31 | Passed | Passed | Passed |
+| [42722426707](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42722426707) | `ef61cb10be7b75e2920ab49a3ef730703876ae3d` | 23:41:01 to 23:43:43 | Passed | Passed | Passed in 13 s (image build 9 s) |
+
+The Kubernetes smoke test deploys and checks the backend only; the frontend
+job builds the gateway image (`npm ci`, lint, and build inside it) and checks
+the nginx configuration, but does not run the app.
 
 In the second run, the Kubernetes job built the images in 29 s, created the
 kind cluster in 40 s, deployed in 46 s (including the `db-init` Job and the
@@ -178,7 +211,17 @@ in [`submission-checklist.md`](submission-checklist.md).
 The cached images had been built on 8 November from the repository, after the
 last change to `backend/`, so they contain the same code as the package. They
 were not built from the package itself, and the Dockerfiles in the package were
-not exercised. That check stays open.
+not exercised.
+
+**Since then.** WSL resolved the registries again on 10 November. The API,
+worker, and gateway images were built from a `git archive` of commit `dfa9d19`
+for the browser checks above, and `scripts/verify-compose.sh` gained
+`FRESH_IMAGES=1` (`scripts/verify-package.ps1 -FreshImages`), which builds
+the three images with `--no-cache --pull` before starting. The final package
+is built and checked this way from its own commit after that commit is made;
+the procedure is in [`submission-checklist.md`](submission-checklist.md), and
+the result, which cannot be part of the package it describes, is recorded
+with the hand-in.
 
 ## Performance
 
@@ -273,10 +316,10 @@ not from password hashing in the API. The README's benchmark command now passes
   acknowledging are possible by design (at-least-once delivery) but are not
   covered by a test, and neither is SQL injection-style input (all queries are
   parameterized by EF Core).
-- **Images not yet built from the package.** The clean-copy check of the
-  submission package passed with cached images only (see "Submission
-  package"). Building the images from the extracted copy stays open until WSL
-  can reach `mcr.microsoft.com` again.
+- **The package's own check is recorded outside it.** The 9 November
+  clean-copy check used cached images; the final package is checked with
+  freshly built images after its commit, so that result is not inside the
+  package (see "Submission package").
 - **Frontend.** The React app has no automated UI tests. It was checked by
   hand in a browser through the Compose gateway (see "Deployment checks"),
   and CI checks only that it lints and builds into the gateway image. The

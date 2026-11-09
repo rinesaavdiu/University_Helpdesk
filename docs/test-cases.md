@@ -11,9 +11,9 @@ environments, is in [`verification-results.md`](verification-results.md).
 | --- | ---- | -------- | ------ |
 | Local, with a test database | 9 Nov 2026, commit `4804f47` | `dotnet test UniversityHelpdesk.slnx --logger trx` with `HELPDESK_TEST_DATABASE` pointing at a dedicated `helpdesk_test` database on a local PostgreSQL 18 instance | API tests 110 of 110 passed (including the 24 integration tests), worker tests 14 of 14 passed; the 5 recovery checks were skipped because their services were not configured |
 | Local, with Compose services | 8 Nov 2026 | The recovery checks against the Compose PostgreSQL, RabbitMQ, Mailpit, and Redis; the Postman collection through the gateway | Recovery 5 of 5 passed; Newman 27 of 27 passed |
-| GitHub Actions | 9 Nov 2026, commit `7c0b1f8` | [Run 42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387): ordinary tests and the Kubernetes smoke test | Succeeded |
+| GitHub Actions | 10 Nov 2026, commit `ef61cb1` | [Run 42722426707](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42722426707): ordinary tests, the Kubernetes smoke test, and the frontend and gateway build | Succeeded |
 | Manual HTTPS check | 9 Nov 2026 | API started with `--launch-profile https` | See TC-34 |
-| Browser, through the Compose gateway | 10 Nov 2026, commit `dfa9d19` | A stack started by `scripts/verify-compose.sh` from a `git archive` of the commit; the React app in separate browser tabs for the student and two technician sessions | See TC-37 to TC-42 |
+| Browser, through the Compose gateway | 10 Nov 2026, commit `dfa9d19` | A stack started by `scripts/verify-compose.sh` from a `git archive` of the commit; the React app in separate browser tabs for the student and two technician sessions | See TC-37 to TC-43 |
 
 The evidence column names the test class and method in `tests/`. Where a test
 runs several inputs, the count is given in brackets. "Passed" in the actual
@@ -93,7 +93,7 @@ column means the test ran and every assertion held.
 | TC-33 | Recovery checks: worker stopped; SMTP down once; SMTP down for every attempt; RabbitMQ unreachable while a ticket is resolved; Redis connection cut | The email arrives after the worker starts; the send is retried and arrives; the event moves to the failed queue; the event waits in the outbox and is delivered after recovery; categories come from PostgreSQL and caching resumes | Passed, 5 of 5 (8 Nov 2026) | `tests/UniversityHelpdesk.RecoveryTests/RecoveryChecks.cs`; [`verification-results.md`](verification-results.md) |
 | TC-34 | API started with `dotnet run --launch-profile https` | HTTPS on `https://localhost:7052`; HTTP redirected to HTTPS; the endpoints behave as over HTTP | `http://localhost:5276/tickets` returned `307` to `https://localhost:7052/tickets`. The server presented the .NET development certificate (`CN=localhost`). Clients that validate certificates rejected it because it is not trusted on this machine; with validation skipped, `/health/ready` `200`, `/swagger/v1/swagger.json` `200`, `GET /tickets` without a token `401`, login `200` with a token | Manual check, 9 Nov 2026; see the README's HTTPS section |
 | TC-35 | Postman collection through the Compose gateway | All 27 requests and assertions pass, including the full workflow of one ticket | Passed, 27 of 27 (8 Nov 2026) | `tests/postman/UniversityHelpdesk.postman_collection.json` |
-| TC-36 | Kubernetes smoke test: student login, create ticket `CI-101`, technician moves it to `InProgress` and `Resolved`, the student reads it | The student sees `Resolved`, and the resolution email reaches `student1@uni.test` in Mailpit | Passed in every hosted run, most recently [42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387) on `7c0b1f8b29265040e805a480ab1e05bd1cc1c908` | `scripts/ci/smoke-test.sh` |
+| TC-36 | Kubernetes smoke test: student login, create ticket `CI-101`, technician moves it to `InProgress` and `Resolved`, the student reads it | The student sees `Resolved`, and the resolution email reaches `student1@uni.test` in Mailpit | Passed in every hosted run, most recently checked [42722426707](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42722426707) on `ef61cb10be7b75e2920ab49a3ef730703876ae3d` | `scripts/ci/smoke-test.sh` |
 
 ## Web frontend through the Compose gateway
 
@@ -110,11 +110,12 @@ checked by `scripts/verify-compose.sh` on every run.
 | TC-40 | The student opens a technician page and sends a status change; the technician opens a student page and creates a ticket | "Not allowed" on both pages with no request to the other role's API; `403` for both API calls; the ticket stays Open | Passed | Runbook step B3; `flow-03` screenshot |
 | TC-41 | Two technician sessions on the same ticket; the second selects **Start work**, and later **Resolve ticket**, with an outdated version | `409`, the conflict warning, and the page reloads with the action for the current status, or none | Passed for both actions | Runbook step B5; `flow-06` screenshot |
 | TC-42 | The ticket in TC-39 is resolved | One email to `student1@uni.test` with the ticket number, room, category, and description; one `TicketResolved` row with `PublishedAt` set | Passed: delivered 0.3 s after resolving | Runbook step B8; `flow-09` screenshot |
+| TC-43 | Sign in as student 1 and as technician 1 in new tabs, with the gateway's Content Security Policy enforced from page load to the signed-in page (no bypass) | Sign-in succeeds with no policy violation; a request to another origin is blocked before and after | Passed for both: `POST /api/auth/login` `200`, **My tickets** and **All tickets**, 0 violations; requests to Mailpit's origin were blocked by `connect-src` | Manual check on 10 Nov 2026 on the same `dfa9d19` stack (the app is unchanged in `ef61cb1`); runbook rehearsal record |
 
 ## Not covered by an automated test
 
-- **The browser flow** (TC-38 to TC-42) was checked by hand with an
-  automated browser; the frontend has no automated UI tests.
+- **The browser flow** (TC-38 to TC-43) was checked with a browser driven by
+  the AI assistant; the frontend has no automated UI tests.
 
 - **SQL injection.** All queries go through EF Core, which sends values as
   parameters; the one raw query (`OutboxPublisher`) uses `FromSql` with

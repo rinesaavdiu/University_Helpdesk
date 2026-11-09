@@ -19,7 +19,7 @@ result.
 | 1. Source code | `backend/` (API and Notification Worker), `frontend/` (React app with `package.json` and `package-lock.json`), `benchmarks/`, `UniversityHelpdesk.slnx` |
 | 2. Configuration and run scripts | `.env.example`, `compose.yaml`, `deploy/` (gateway and Kubernetes, with `secrets.env.example`), `appsettings.json` files, Dockerfiles (including `frontend/Dockerfile` for the gateway), `.github/workflows/ci.yml`, `scripts/` |
 | 3. Database | EF Core migrations in `backend/UniversityHelpdesk.Api/Persistence/Migrations/` (schema and the six categories), **`database/schema.sql`** (generated from the migrations when the package is built), `database/init/` (test database), and the demo-account seeding described in the README, "Database initialization" |
-| 4. Tests and results | `tests/` (unit, HTTP, integration, recovery, Postman), `docs/test-cases.md`, `docs/verification-results.md`, `docs/benchmark-results.md` |
+| 4. Tests and results | `tests/` (unit, HTTP, integration, recovery, Postman), `docs/test-cases.md`, `docs/verification-results.md`, `docs/benchmark-results.md`, and the browser demo screenshots in `docs/screenshots/` |
 | 5. README | `README.md`, plus `docs/requirements.md`, `docs/design.md`, `docs/api-contract.md` |
 | 6. Presentation | `docs/presentation.md`, **`docs/presentation.pdf`** (exported when the package is built with `-IncludeSlidesPdf`), `docs/demo-runbook.md`, this checklist |
 | Section 14: sources and AI use | `docs/sources-and-contributions.md` |
@@ -40,9 +40,12 @@ any of the following:
   password or key value from the local `.env` and `secrets.env` files. The
   values are compared without being printed.
 
-Once a `frontend/` folder exists, the script also requires
-`frontend/package.json` and rejects `frontend/node_modules/` and
-`frontend/dist/`.
+For the frontend, the script requires `frontend/package.json`,
+`frontend/package-lock.json`, `frontend/index.html`, `frontend/src/main.tsx`,
+`frontend/vite.config.ts`, and `frontend/Dockerfile`, and rejects
+`frontend/node_modules/` and `frontend/dist/`. It also requires the browser
+demo screenshots of the reported ticket, the resolved ticket, and the email in
+`docs/screenshots/`.
 
 ## Build the package
 
@@ -69,7 +72,10 @@ outside the repository, and follows the extracted README:
 
 1. `dotnet build` and `dotnet test` (the ordinary suite; tests that need
    services are skipped).
-2. `scripts/verify-compose.sh`, run in WSL when `docker` is not available in
+2. In `frontend/`: `npm ci` from `package-lock.json`, `npm run lint`, and
+   `npm run build` (skipped with a note if npm is not installed; the gateway
+   image build in the next step runs the same commands).
+3. `scripts/verify-compose.sh`, run in WSL when `docker` is not available in
    PowerShell. It creates `.env` from `.env.example` with new random values,
    moves the host ports to `4xxxx` so that they do not clash with a running
    demo system, and starts Compose under the project name `helpdesk-verify`,
@@ -86,10 +92,13 @@ outside the repository, and follows the extracted README:
      Mailpit.
    - At the end it removes the project's containers, volumes, and `.env`.
 
-Options: `-UseCachedImages` starts Compose with the existing
-`university-helpdesk-*:local` images instead of building them (this does
-**not** prove that the images build from the package), `-SkipCompose` runs
-only the build and tests, and `-KeepRunning` leaves the system running.
+Options: `-FreshImages` builds the API, worker, and gateway images with
+`--no-cache --pull` and prints their image IDs and creation times, so no
+earlier layer is reused (use it for the final package); `-UseCachedImages`
+starts Compose with the existing `university-helpdesk-*:local` images instead
+of building them (this does **not** prove that the images build from the
+package); `-SkipCompose` runs only the build and tests; and `-KeepRunning`
+leaves the system running, for example to repeat the browser demo on it.
 
 To check the copy downloaded back from Moodle without building anything:
 
@@ -119,15 +128,25 @@ commit (Git tree `570e2b7`), because `docs/presentation.md` and
 `docker compose up --build` failed; Windows resolved the same names. Common
 fixes are restarting WSL (`wsl --shutdown`, which also stops the containers and
 the kind cluster), or setting `networkingMode=mirrored` or `dnsTunneling=true`
-in `%UserProfile%\.wslconfig`. None was applied. Once fixed, run
-`scripts/verify-package.ps1` again without `-UseCachedImages`.
+in `%UserProfile%\.wslconfig`. None was applied. By 10 November WSL resolved
+the registries again, and images were built from a `git archive` of commit
+`dfa9d19` (see [`verification-results.md`](verification-results.md)). The
+final package is checked with `-FreshImages` after its commit.
 
 ## Hand-in checklist
 
-Before the final package:
+Done before the final package:
 
-- [ ] Commit `docs/presentation.md` and `docs/demo-runbook.md`. They are not
-      in commit `b29c149`, although the Step 29 commit message names them.
+- [x] `docs/presentation.md` and `docs/demo-runbook.md` committed (`37d8ee2`).
+- [x] React frontend: built from its lockfile into the Compose gateway image
+      (`dfa9d19`), verified in a browser against the real API with
+      screenshots (`ef61cb1`), and the README, runbook, "Live demo" slides,
+      test cases, and verification results updated.
+- [x] Frontend packages and their licenses listed in
+      `docs/sources-and-contributions.md`.
+
+**Team actions** (only the group members can do these):
+
 - [ ] Group member names on the title slide of `docs/presentation.md`.
 - [ ] Each member's name, GitHub account, confirmed contributions, and
       evidence in `docs/sources-and-contributions.md` and on the
@@ -136,17 +155,17 @@ Before the final package:
 - [ ] Check that the AI disclosure in `docs/sources-and-contributions.md` and
       on the "Sources and AI use" slide meets the course guidelines on AI use.
 - [ ] Every member can explain the code they present (section 14).
-- [ ] React frontend: verified against the real API, its walkthrough and
-      screenshots added to `docs/demo-runbook.md` and the "Live demo" slide,
-      and its setup added to the README (see "After the React frontend"
-      below).
+- [ ] Any course material or tutorials the team consulted, in
+      `docs/sources-and-contributions.md`.
 
-Rehearsal:
+Rehearsal (team actions):
 
-- [ ] Click through `docs/demo-runbook.md` in Swagger with two browser windows
-      (the 9 November rehearsal sent the same requests from a script).
-- [ ] Timed run of the whole presentation and demo with every speaker.
-      Record the time: ____ minutes, on ____ (date).
+- [ ] Click through the browser demo in `docs/demo-runbook.md` by hand, with
+      two browser windows and typed passwords (the 10 November run was driven
+      by an automation tool). Optionally, click through the Swagger backup
+      once (the 9 November rehearsal sent its requests from a script).
+- [ ] **Pending:** timed, spoken run of the whole presentation and demo with
+      every speaker. Record the time: ____ minutes, on ____ (date).
 - [ ] Practice the live-change exercise (filter by room) on a separate branch,
       in under 10 minutes.
 
@@ -155,8 +174,8 @@ Package:
 - [ ] `git status` is clean, and the final commit is pushed and its GitHub
       Actions run succeeded.
 - [ ] `scripts/package-submission.ps1 -IncludeSlidesPdf` passes.
-- [ ] `scripts/verify-package.ps1` passes **with a fresh image build**
-      (without `-UseCachedImages`).
+- [ ] `scripts/verify-package.ps1 -FreshImages` passes on the final ZIP, and
+      the browser demo works on the extracted stack (`-KeepRunning`).
 - [ ] Open `docs/presentation.pdf` from the extracted copy and check every
       slide.
 
@@ -171,18 +190,13 @@ Moodle:
 - [ ] Every member attends the defense, with the demo laptop prepared as in
       `docs/demo-runbook.md` ("Before the defense").
 
-## After the React frontend
+## Scope of the final package
 
-When the frontend is in `frontend/` and verified against the real API:
-
-1. Update the README (frontend setup and start), `docs/demo-runbook.md` (the
-   browser walkthrough and screenshots), `docs/presentation.md` (the "Live
-   demo" slide and any new results), and `docs/test-cases.md` and
-   `docs/verification-results.md` for any frontend checks.
-2. Done: Compose builds the frontend into the gateway image, and
-   `scripts/verify-compose.sh` requests the app and the API through it.
-3. Commit and push, and wait for GitHub Actions to pass.
-4. Build the package again with `-IncludeSlidesPdf`, and run
-   `scripts/verify-package.ps1` on the new ZIP, without `-UseCachedImages`.
-5. Update the rehearsal section above with what ran, and repeat the
-   "Package" and "Moodle" items.
+- The React frontend runs through Docker Compose: the gateway image builds it
+  from `frontend/` with `npm ci` and serves it with the API.
+- The Kubernetes manifests and their verification cover the backend only
+  (API, worker, PostgreSQL, RabbitMQ, Redis, Mailpit).
+- The package contains `frontend/` with `package.json` and
+  `package-lock.json`, but no `frontend/node_modules/`, `frontend/dist/`, or
+  any other dependencies, build output, or credentials; the script above
+  checks this.

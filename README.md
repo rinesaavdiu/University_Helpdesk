@@ -120,6 +120,11 @@ the RabbitMQ messages.
 
 ## Deploy to a local Kubernetes cluster
 
+The Kubernetes deployment covers the backend: the API, the worker, and the
+services they use. The web frontend is not part of it; run the app with Docker
+Compose, or point the frontend's development server at the API (see "Run the
+frontend").
+
 `deploy/kubernetes/` holds three Kustomize layers, applied in this order:
 
 | Layer            | Contents |
@@ -301,9 +306,10 @@ out. The API's tokens last 60 minutes and cannot be renewed: when one
 expires, or the API answers `401`, the app returns to the sign-in page with
 "Your session has expired", and after signing in again it reopens the page
 you were on. **Sign out** in the header ends the session in that tab. The
-browser walkthrough of the student screens is in `docs/demo-runbook.md`
-("Student screens in the browser"), and `docs/frontend-handoff.md` describes
-the routes, the session, and the API client.
+browser demo, from a student's report to the technician's resolution and the
+email, is in `docs/demo-runbook.md` ("The demo in the browser"), and
+`docs/frontend-handoff.md` describes the routes, the session, and the API
+client.
 
 To check and build for production:
 
@@ -653,24 +659,28 @@ or ticket descriptions. See `docs/api-contract.md` for the metric names.
 ## Presentation and demo
 
 `docs/presentation.md` holds the defense slides (Marp format; export with
-`npx @marp-team/marp-cli docs/presentation.md --pdf`), and
-`docs/demo-runbook.md` the step-by-step live demo, the student screens
-walkthrough with screenshots, a practice exercise for a small live code
-change, and a record of the rehearsals.
+`npx @marp-team/marp-cli docs/presentation.md --pdf --allow-local-files`, which
+lets the slides embed the screenshots; the submission package
+includes the exported `docs/presentation.pdf`), and `docs/demo-runbook.md` the
+step-by-step live demo in the web app with screenshots, the same demo in
+Swagger as a backup, the student screens walkthrough, a practice exercise for
+a small live code change, and a record of the rehearsals.
 
 ## Submission package
 
 `scripts/package-submission.ps1` builds the submission ZIP from the committed
 files and checks that it contains the required items and no local secrets or
 build output; `scripts/verify-package.ps1` extracts it into a clean folder,
-builds and tests it, and runs `scripts/verify-compose.sh`, which starts Docker
-Compose with a fresh `.env` and new volumes, checks that the gateway serves the
-app and the API, and checks the core flow. The
-steps and the hand-in checklist are in `docs/submission-checklist.md`.
+builds and tests the backend, installs, lints, and builds the frontend, and
+runs `scripts/verify-compose.sh`, which starts Docker Compose with a fresh
+`.env` and new volumes, checks that the gateway serves the app and the API,
+and checks the core flow. `-FreshImages` builds the API, worker, and gateway
+images with `--no-cache --pull` first. The steps and the hand-in checklist are
+in `docs/submission-checklist.md`.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/package-submission.ps1 -IncludeSlidesPdf
-powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1 -ZipPath submission/University_Helpdesk-<commit>.zip
+powershell -ExecutionPolicy Bypass -File scripts/verify-package.ps1 -ZipPath submission/University_Helpdesk-<commit>.zip -FreshImages
 ```
 
 ## Sources and contributions
