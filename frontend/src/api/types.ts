@@ -27,6 +27,12 @@ export type TicketPage = {
   totalCount: number
 }
 
+export type CreateTicketInput = {
+  room: string
+  categoryId: number
+  description: string
+}
+
 export type ListTicketsParams = {
   status?: TicketStatus
   page?: number

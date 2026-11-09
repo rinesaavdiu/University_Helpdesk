@@ -3,6 +3,7 @@ export type Role = 'Student' | 'Technician'
 export const paths = {
   login: '/login',
   studentTickets: '/student/tickets',
+  studentNewTicket: '/student/tickets/new',
   studentTicket: '/student/tickets/:ticketId',
   technicianTickets: '/technician/tickets',
 } as const

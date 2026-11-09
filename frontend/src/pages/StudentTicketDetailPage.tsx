@@ -9,7 +9,12 @@ import { ErrorState, LoadingState } from '../components/StatusStates'
 import { formatDateTime } from '../format'
 import { useApiData } from '../hooks/useApiData'
 import { paths } from '../routes'
-import type { StudentTicketsLinkState } from './StudentTicketsPage'
+
+/** Router state for the detail page: the list page to return to, and a message to show once. */
+export type StudentTicketLocationState = {
+  listSearch?: string
+  notice?: string
+}
 
 function parseTicketId(value: string | undefined): number | null {
   const id = Number(value)
@@ -21,8 +26,8 @@ export function StudentTicketDetailPage() {
   const params = useParams()
   const location = useLocation()
   const ticketId = parseTicketId(params.ticketId)
-  const listState = location.state as StudentTicketsLinkState | null
-  const backHref = `${paths.studentTickets}${listState?.listSearch ?? ''}`
+  const locationState = location.state as StudentTicketLocationState | null
+  const backHref = `${paths.studentTickets}${locationState?.listSearch ?? ''}`
 
   const load = useCallback(
     (signal: AbortSignal) =>
@@ -47,7 +52,16 @@ export function StudentTicketDetailPage() {
       const { title, message } = describeError(ticket.error)
       return <ErrorState title={title} message={<p>{message}</p>} onRetry={reload} />
     }
-    return <TicketDetails ticket={ticket.data} />
+    return (
+      <>
+        {locationState?.notice && (
+          <p className="notice" role="status">
+            {locationState.notice}
+          </p>
+        )}
+        <TicketDetails ticket={ticket.data} />
+      </>
+    )
   }
 
   return (

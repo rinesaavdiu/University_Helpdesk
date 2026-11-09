@@ -10,12 +10,9 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StatusStates
 import { TicketList } from '../components/TicketList'
 import { useApiData } from '../hooks/useApiData'
 import { paths, studentTicketPath } from '../routes'
+import type { StudentTicketLocationState } from './StudentTicketDetailPage'
 
 const pageSize = 10
-
-export type StudentTicketsLinkState = {
-  listSearch: string
-}
 
 function parseStatus(value: string | null): TicketStatus | undefined {
   return ticketStatuses.find((status) => status === value)
@@ -47,7 +44,12 @@ export function StudentTicketsPage() {
   )
   const [tickets, reload] = useApiData(load)
 
-  const linkState: StudentTicketsLinkState = { listSearch: listSearch(status, page) }
+  const linkState: StudentTicketLocationState = { listSearch: listSearch(status, page) }
+  const reportLink = (
+    <Link to={paths.studentNewTicket} className="button">
+      Report an issue
+    </Link>
+  )
 
   function renderContent() {
     if (tickets.status === 'loading') {
@@ -72,7 +74,7 @@ export function StudentTicketsPage() {
           <p>None of your tickets have this status.</p>
         </EmptyState>
       ) : (
-        <EmptyState title="No tickets yet">
+        <EmptyState title="No tickets yet" action={reportLink}>
           <p>Problems you report will appear here.</p>
         </EmptyState>
       )
@@ -110,7 +112,11 @@ export function StudentTicketsPage() {
 
   return (
     <section className="page">
-      <PageHeader title="My tickets" description="Problems you have reported and their current status." />
+      <PageHeader
+        title="My tickets"
+        description="Problems you have reported and their current status."
+        actions={reportLink}
+      />
       <div className="toolbar">
         <label htmlFor={statusFilterId}>Status</label>
         <select
