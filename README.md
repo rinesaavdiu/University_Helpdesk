@@ -444,13 +444,18 @@ nothing else. With the Compose system running:
 
 ```powershell
 $env:HELPDESK_BENCH_DATABASE = "Host=127.0.0.1;Port=55432;Database=helpdesk;Username=helpdesk;Password=<POSTGRES_PASSWORD>"
-dotnet run --project benchmarks/UniversityHelpdesk.Benchmark -c Release -- --redis 127.0.0.1:56379 --environment "<describe the machine and deployment>" --output benchmark.json
+dotnet run --project benchmarks/UniversityHelpdesk.Benchmark -c Release -- --base-url http://127.0.0.1:58080 --redis 127.0.0.1:56379 --environment "<describe the machine and deployment>" --output benchmark.json
 Remove-Item Env:HELPDESK_BENCH_DATABASE
 ```
 
+Use `127.0.0.1` rather than `localhost`: on the Windows host used for the
+recorded results, `localhost` tried IPv6 first, and each new connection to the
+gateway took about 2 s longer, which inflated the login timings.
+
 Run it with `--help` to see the options for the user, ticket, and request counts.
 It exits with `1` if any request fails. Recorded results are in
-`docs/benchmark-results.md`.
+`docs/benchmark-results.md`, and every test, recovery, deployment, and CI result
+is in `docs/verification-results.md`.
 
 ### Continuous integration
 

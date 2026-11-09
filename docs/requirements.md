@@ -109,7 +109,8 @@ inbox during local development.
 ## Nonfunctional requirements
 
 Each requirement states how it will be verified. Performance figures are
-targets; measured results are recorded in `benchmark-results.md`.
+targets; measured results are recorded in `benchmark-results.md`, and the
+results of every verification are in `verification-results.md`.
 
 | ID       | Area            | Requirement                                                                                                                                  | Verification                                                                                         |
 | -------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |

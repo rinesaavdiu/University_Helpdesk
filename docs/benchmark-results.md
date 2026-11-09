@@ -68,14 +68,18 @@ run removed its 20 students, its technician, and its 1,000 tickets; no
 - **NFR-P1 is met.** The p95 latency of `GET /tickets` over all tickets was
   76.5 to 117.1 ms, well under the 300 ms target, with no failures. A student's
   own list stayed under 151 ms.
-- Cold category reads, which query PostgreSQL and refill Redis, took about
-  10 ms. Warm reads under 20 concurrent users took about 17 to 24 ms at the
-  median, so most of that time is queueing for the CPU rather than the lookup.
-- Logging in is slow when many users log in at once: about 2.8 s when 21 users
-  log in together. Password verification is deliberately expensive and runs on
-  the 4-core host shared by every container, so 21 simultaneous logins queue.
-  This is outside NFR-P1. Logins are rare compared with other requests, because
-  a token lasts until it expires.
+- **No cache speedup was demonstrated.** Cold category reads, which query
+  PostgreSQL and refill Redis, took about 9 to 10 ms at the median; warm reads,
+  served from Redis, took about 17 to 24 ms. The counters prove that the warm
+  reads were cache hits, but the two scenarios ran at different concurrency
+  (1 and 20 users), and reading 6 categories from PostgreSQL costs little
+  compared with the HTTP, gateway, and forwarding overhead. This workload
+  cannot show whether the cache makes reads faster.
+- The logins took about 2.7 to 2.8 s at the median, but not because of the API.
+  The client used `localhost`, which resolves to `::1` before `127.0.0.1`, and
+  each new connection spent about 2 s before reaching the gateway. Logins open
+  the benchmark's connections; the later scenarios reuse them. See the
+  follow-up below.
 - The numbers vary by about 30% between runs, because the API, the database,
   and the benchmark share one laptop. Compare results only from the same
   machine.
@@ -83,3 +87,21 @@ run removed its 20 students, its technician, and its 1,000 tickets; no
 The Kubernetes deployment was checked for function only, not benchmarked: a
 `kubectl port-forward` sends every request to one pod, so its numbers would not
 represent the Service.
+
+## Follow-up: client address (9 November 2026)
+
+Four more runs on the same machine and Compose stack, alternating the
+`--base-url` option. They ran without `--redis`, so the cold category scenario
+was skipped. All latencies in milliseconds.
+
+| Run | Base URL | Login median | Login p95 | `GET /tickets` (technician) p95 | Failures |
+| --: | -------- | -----------: | --------: | ------------------------------: | -------: |
+| 1 | `http://localhost:58080` | 2,540.4 | 2,734.4 | 98.2 | 0 |
+| 2 | `http://127.0.0.1:58080` | 645.4 | 765.9 | 109.2 | 0 |
+| 3 | `http://localhost:58080` | 2,658.5 | 2,844.6 | 83.0 | 0 |
+| 4 | `http://127.0.0.1:58080` | 545.3 | 670.0 | 133.0 | 0 |
+
+Connecting to `127.0.0.1` cut the login median by 75 to 80%. The other
+scenarios were within the usual variation between runs, and NFR-P1 was met in
+every run. The README's benchmark command uses `127.0.0.1`. The supporting
+connection measurements are in [`verification-results.md`](verification-results.md).
