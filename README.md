@@ -575,6 +575,13 @@ logged once with its route template, status code, duration, and trace ID.
 Notification logs include the event ID. Logs never contain credentials, tokens,
 or ticket descriptions. See `docs/api-contract.md` for the metric names.
 
+## Presentation and demo
+
+`docs/presentation.md` holds the defense slides (Marp format; export with
+`npx @marp-team/marp-cli docs/presentation.md --pdf`), and
+`docs/demo-runbook.md` the step-by-step live demo, a practice exercise for a
+small live code change, and a record of the rehearsal.
+
 ## Sources and contributions
 
 `docs/sources-and-contributions.md` lists the libraries, images, and tools the

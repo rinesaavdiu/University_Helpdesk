@@ -22,7 +22,7 @@ WSL 2 (Ubuntu 22.04). Clients on Windows used .NET SDK 10 (runtime 10.0.14).
 | Compose deployment | Healthy services, email delivered, data persists | Met; see below | 8 Nov 2026 |
 | Kubernetes deployment (local kind cluster) | Ordered start-up, end-to-end flow, data persists | Met; see below | 8 Nov 2026 |
 | Local HTTPS (`--launch-profile https`) | HTTPS served, HTTP redirected | Met with an untrusted development certificate; see TC-34 | 9 Nov 2026 |
-| GitHub Actions | Both jobs pass on push to `main` | 4 of 4 runs succeeded | 9 Nov 2026 |
+| GitHub Actions | Both jobs pass on push to `main` | 5 of 5 runs succeeded | 9 Nov 2026 |
 | Clean, extracted submission package starts and passes its checks (NFR-M3) | Health checks pass from the extracted copy | Not yet run | Open |
 | NFR-P1: `GET /tickets` p95 under 300 ms | Under 300 ms | 76.5 to 133.0 ms over 7 runs | 8 and 9 Nov 2026 |
 | Category cache speedup | Warm reads faster than cold reads | Not demonstrated for this workload | 8 Nov 2026 |
@@ -115,6 +115,7 @@ first attempt. Times are UTC on 9 November 2026.
 | [42690701136](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42690701136) | `da59588be70216e07f3f2a0f2457c178f9932081` | 20:12:22 to 20:15:10 | Passed in 32 s | Passed in 2 min 10 s |
 | [42694031970](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42694031970) | `4bf38b0c67b753f0c0313a888a136e223d301831` | 20:33:07 to 20:35:44 | Passed | Passed |
 | [42696574964](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42696574964) | `4804f4750f8934fe9b4e9f92c8d1cc681b6f2db5` | 20:49:12 to 20:52:11 | Passed | Passed |
+| [42697737387](https://github.com/rinesaavdiu/University_Helpdesk/actions/runs/42697737387) | `7c0b1f8b29265040e805a480ab1e05bd1cc1c908` | 20:56:36 to 20:59:21 | Passed | Passed |
 
 In the second run, the Kubernetes job built the images in 29 s, created the
 kind cluster in 40 s, deployed in 46 s (including the `db-init` Job and the
