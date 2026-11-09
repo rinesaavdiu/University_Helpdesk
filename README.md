@@ -252,8 +252,9 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
 ## Run the frontend
 
 The frontend in `frontend/` is a React and TypeScript app built with Vite.
-So far it has the app shell, the student ticket list, ticket details, and
-issue report form (`/student/tickets`, `/student/tickets/{id}`, and
+So far it has the app shell, the student screens (the ticket list, ticket
+details with edit and delete for open tickets, and the issue report form, at
+`/student/tickets`, `/student/tickets/{id}`, `/student/tickets/{id}/edit`, and
 `/student/tickets/new`), and placeholders for
 `/login` and `/technician/tickets`. Sign-in is not built yet, so in the app
 the student screens show "Sign in required"; use the student screens harness

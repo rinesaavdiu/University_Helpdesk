@@ -33,6 +33,11 @@ export type CreateTicketInput = {
   description: string
 }
 
+/** Fields that are left out keep their value. `version` must be the ticket's current version. */
+export type UpdateTicketInput = Partial<CreateTicketInput> & {
+  version: number
+}
+
 export type ListTicketsParams = {
   status?: TicketStatus
   page?: number

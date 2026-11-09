@@ -1,5 +1,5 @@
-import { useCallback } from 'react'
-import { Link, useLocation, useParams } from 'react-router'
+import { useCallback, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { ApiError, describeError, isApiError } from '../api/errors'
 import { useStudentTicketApi } from '../api/StudentTicketApiContext'
 import type { Ticket } from '../api/types'
@@ -8,23 +8,19 @@ import { StatusBadge } from '../components/StatusBadge'
 import { ErrorState, LoadingState } from '../components/StatusStates'
 import { formatDateTime } from '../format'
 import { useApiData } from '../hooks/useApiData'
-import { paths } from '../routes'
+import { parseTicketId, paths, studentEditTicketPath } from '../routes'
 
-/** Router state for the detail page: the list page to return to, and a message to show once. */
+/** Router state for the detail and list pages: the list page to return to, and a message to show once. */
 export type StudentTicketLocationState = {
   listSearch?: string
   notice?: string
-}
-
-function parseTicketId(value: string | undefined): number | null {
-  const id = Number(value)
-  return Number.isInteger(id) && id > 0 ? id : null
 }
 
 export function StudentTicketDetailPage() {
   const api = useStudentTicketApi()
   const params = useParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const ticketId = parseTicketId(params.ticketId)
   const locationState = location.state as StudentTicketLocationState | null
   const backHref = `${paths.studentTickets}${locationState?.listSearch ?? ''}`
@@ -35,6 +31,73 @@ export function StudentTicketDetailPage() {
     [api, ticketId],
   )
   const [ticket, reload] = useApiData(load)
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function deleteTicket(id: number) {
+    setDeleting(true)
+    setActionError(null)
+    try {
+      await api.deleteTicket(id)
+      const state: StudentTicketLocationState = { notice: `Ticket #${id} was deleted.` }
+      navigate(paths.studentTickets, { replace: true, state })
+    } catch (error) {
+      setDeleting(false)
+      setConfirmingDelete(false)
+      if (isApiError(error, 409)) {
+        setActionError('This ticket is no longer open, so it cannot be deleted. The latest version is shown below.')
+        reload()
+      } else if (isApiError(error, 404)) {
+        const state: StudentTicketLocationState = { notice: `Ticket #${id} had already been deleted.` }
+        navigate(paths.studentTickets, { replace: true, state })
+      } else {
+        const { title, message } = describeError(error)
+        setActionError(`${title}. ${message}`)
+      }
+    }
+  }
+
+  function renderActions(current: Ticket) {
+    if (current.status !== 'Open') {
+      return (
+        <p className="field__hint">Only open tickets can be edited or deleted. This ticket is being handled.</p>
+      )
+    }
+    if (confirmingDelete) {
+      return (
+        <div className="confirm" role="group" aria-label="Confirm deletion">
+          <p>
+            <strong>Delete ticket #{current.id}?</strong> This cannot be undone.
+          </p>
+          <div className="form-actions">
+            <button type="button" className="button button--danger" disabled={deleting} onClick={() => deleteTicket(current.id)}>
+              {deleting ? 'Deleting…' : 'Delete ticket'}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={deleting}
+              onClick={() => setConfirmingDelete(false)}
+            >
+              Keep ticket
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="form-actions">
+        <Link to={studentEditTicketPath(current.id)} className="button">
+          Edit ticket
+        </Link>
+        <button type="button" className="button button--secondary" onClick={() => setConfirmingDelete(true)}>
+          Delete ticket
+        </button>
+      </div>
+    )
+  }
 
   function renderContent() {
     if (ticket.status === 'loading') {
@@ -59,7 +122,13 @@ export function StudentTicketDetailPage() {
             {locationState.notice}
           </p>
         )}
+        {actionError && (
+          <div className="alert" role="alert">
+            {actionError}
+          </div>
+        )}
         <TicketDetails ticket={ticket.data} />
+        {renderActions(ticket.data)}
       </>
     )
   }

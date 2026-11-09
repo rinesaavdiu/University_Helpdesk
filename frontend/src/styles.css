@@ -276,6 +276,50 @@ a {
   color: var(--color-error);
 }
 
+.alert--warning {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-color: #d9a400;
+  background: #fff8e1;
+  color: var(--color-text);
+}
+
+.button--danger {
+  border-color: var(--color-error);
+  background: var(--color-error);
+}
+
+.button--danger:hover {
+  background: #7f1d22;
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius);
+  background: var(--color-error-background);
+}
+
+.change-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.details.details--compact {
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.details.details--compact dd {
+  font-weight: 400;
+}
+
 .notice {
   padding: 0.75rem 1rem;
   border: 1px solid #9fd3ad;

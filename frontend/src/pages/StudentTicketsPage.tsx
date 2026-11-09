@@ -1,5 +1,5 @@
 import { useCallback, useId } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import { describeError } from '../api/errors'
 import { useStudentTicketApi } from '../api/StudentTicketApiContext'
 import { ticketStatuses, type TicketStatus } from '../api/types'
@@ -34,6 +34,7 @@ function listSearch(status: TicketStatus | undefined, page: number): string {
 export function StudentTicketsPage() {
   const api = useStudentTicketApi()
   const [searchParams, setSearchParams] = useSearchParams()
+  const notice = (useLocation().state as StudentTicketLocationState | null)?.notice
   const status = parseStatus(searchParams.get('status'))
   const page = parsePage(searchParams.get('page'))
   const statusFilterId = useId()
@@ -117,6 +118,11 @@ export function StudentTicketsPage() {
         description="Problems you have reported and their current status."
         actions={reportLink}
       />
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
       <div className="toolbar">
         <label htmlFor={statusFilterId}>Status</label>
         <select

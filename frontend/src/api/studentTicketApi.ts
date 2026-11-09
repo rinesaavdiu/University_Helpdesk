@@ -1,5 +1,5 @@
 import { requestJson, type ApiRequest } from './http'
-import type { Category, CreateTicketInput, ListTicketsParams, Ticket, TicketPage } from './types'
+import type { Category, CreateTicketInput, ListTicketsParams, Ticket, TicketPage, UpdateTicketInput } from './types'
 
 /** The ticket and category operations the student screens use. */
 export interface StudentTicketApi {
@@ -7,6 +7,8 @@ export interface StudentTicketApi {
   getTicket(id: number, signal?: AbortSignal): Promise<Ticket>
   listCategories(signal?: AbortSignal): Promise<Category[]>
   createTicket(input: CreateTicketInput): Promise<Ticket>
+  updateTicket(id: number, input: UpdateTicketInput): Promise<Ticket>
+  deleteTicket(id: number): Promise<void>
 }
 
 function jsonBody(method: string, value: unknown): RequestInit {
@@ -38,6 +40,14 @@ export function createStudentTicketApi(request: ApiRequest): StudentTicketApi {
 
     createTicket(input) {
       return requestJson<Ticket>(request, '/tickets', jsonBody('POST', input))
+    },
+
+    updateTicket(id, input) {
+      return requestJson<Ticket>(request, `/tickets/${id}`, jsonBody('PATCH', input))
+    },
+
+    deleteTicket(id) {
+      return requestJson<void>(request, `/tickets/${id}`, { method: 'DELETE' })
     },
   }
 }
