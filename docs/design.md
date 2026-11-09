@@ -2,7 +2,8 @@
 
 **University Helpdesk API** — *Sistem për raportimin e problemeve teknike në universitet*
 
-This document describes the planned architecture. The requirements are in
+This document describes the architecture as implemented; parts that are still
+planned are marked as such. The requirements are in
 [`requirements.md`](requirements.md) and the HTTP contract is in
 [`api-contract.md`](api-contract.md).
 
@@ -17,6 +18,10 @@ The system has two separately deployable components:
   ticket-resolved events from RabbitMQ and sends confirmation emails. During
   local development, emails go to Mailpit, a test SMTP server with a web inbox.
 
+A web frontend for students and technicians is planned but not built yet.
+Until it exists, clients are the Swagger UI, the Postman collection, or any
+HTTP client.
+
 ```mermaid
 flowchart LR
     client[Student or Technician client]
@@ -27,7 +32,7 @@ flowchart LR
     mq[[RabbitMQ]]
     mail[Mailpit]
 
-    client -->|HTTPS + JWT| api
+    client -->|HTTP + JWT| api
     api -->|users, tickets, categories| pg
     api -->|category cache| redis
     api -->|ticket resolved events| mq
@@ -98,7 +103,8 @@ RabbitMQ:
 | `Payload`        | JSON with the details needed to write the email.              |
 | `CreatedAt`      | When the row was written.                                      |
 | `PublishedAt`    | Null until the event has been published to RabbitMQ.           |
-| `Attempts`       | Number of publish attempts, used for retry and alerting.       |
+| `Attempts`       | Number of failed publish attempts. After 10, the event is left unpublished for inspection. |
+| `NextAttemptAt`  | Earliest time of the next attempt after a failure; null means as soon as possible. The delay doubles after each failure, from 5 seconds up to 5 minutes. |
 
 `(TicketId, EventType)` is unique, so a ticket can never have two resolution
 events.
@@ -108,11 +114,18 @@ events.
 The Ticket API is split into three layers. Each layer only calls the one below
 it.
 
-| Layer          | Responsibility                                                                                                                                                                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP           | Routing, authentication, reading the user ID and role from the JWT, request validation, and mapping results and errors to the status codes in the API contract. No business rules. |
-| Business logic | Ownership and role rules, the status workflow, and deciding when a notification is needed. Independent of HTTP and of the database technology, so it can be unit tested.          |
-| Persistence    | PostgreSQL access, transactions, concurrency checks, the Redis category cache, and the outbox. Returns domain objects, not HTTP responses.                                          |
+| Layer          | Code | Responsibility |
+| -------------- | ---- | -------------- |
+| HTTP           | `Controllers/`, `Authentication/`, `ErrorHandling/` | Routing, authentication, role policies, reading the user ID and role from the JWT, request validation, and mapping results to the status codes in the API contract. No business rules. |
+| Business logic | `Tickets/TicketService`, `Categories/CategoryService`, `Domain/TicketWorkflow` | Ownership rules, the status workflow, and deciding when a notification is needed. Services return result objects (success, invalid field, not found, conflict), never HTTP responses. |
+| Persistence    | `Persistence/`, `Categories/CategoryCache`, `Notifications/` | The EF Core context, entity configurations, and migrations; the Redis category cache; and the outbox publisher. |
+
+`TicketWorkflow` holds the status rules as plain functions with no database
+access, so they are unit tested on their own. `TicketService` is not independent
+of the database: it applies ownership, state, and version checks inside single
+conditional `UPDATE` and `DELETE` statements through EF Core, so that a check
+and its change cannot be separated by a concurrent request. Its behavior is
+therefore covered by the HTTP integration tests against PostgreSQL.
 
 ## Ticket workflow and permissions
 
@@ -134,7 +147,8 @@ Open → InProgress → Resolved
 
 ## Consistency and resilience
 
-These rules guide the later implementation.
+The implementation follows these rules. The README lists the tests and
+recovery checks that exercise them.
 
 **Concurrent edits and status changes.** Every ticket has a `Version` that the
 server increments on each change. Clients send the version they last saw with
@@ -173,11 +187,11 @@ the message is redelivered and the student receives the email twice. The email's
 
 ## Deployment and operations
 
-| Area               | Plan                                                                                                                                                       |
+| Area               | Implementation                                                                                                                                             |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Local development  | Docker Compose starts the Ticket API, Notification Worker, PostgreSQL, Redis, RabbitMQ, and Mailpit with one command. A one-off `db-init` container applies migrations and creates the demo accounts; the two API replicas start only after it succeeds, so they never race to change the schema. An nginx gateway load-balances requests between the replicas. Secrets come from environment variables in `.env`. |
 | Kubernetes         | Kustomize manifests in `deploy/kubernetes/`, applied in three steps. First the stateful services: PostgreSQL and RabbitMQ as StatefulSets with persistent volumes, plus Redis and Mailpit. Then a `db-init` Job that applies migrations and creates the demo accounts. Last, the Ticket API as a Deployment with two replicas behind an internal Service, which load-balances requests between them, and the worker as its own Deployment. Secrets come from a local, git-ignored file that uses the same keys as `.env`. The Service is not exposed outside the cluster, so `/metrics` is available only to in-cluster monitoring. |
-| CI/CD              | GitHub Actions builds the solution and runs the tests on every push and pull request, then verifies that the containers start and pass health checks.     |
+| CI                 | A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push to `main` and every pull request. It builds the solution and runs the tests that need no services, then builds both images, deploys the Kubernetes manifests to a temporary kind cluster with random credentials, and runs a smoke test from login to the resolution email in Mailpit. Test results and deployment diagnostics are kept as artifacts. Nothing is deployed to a shared environment yet. |
 | Monitoring         | JSON console logs with a trace ID per request, liveness (`/health/live`) and readiness (`/health/ready`) endpoints for Kubernetes probes, and Prometheus request count, error, and latency metrics at `/metrics`. The worker has no HTTP endpoint; it rewrites a health file every 10 seconds while it is consuming, and its container health check tests that the file is recent. |
 | Testing            | Unit and HTTP tests run without services. Integration tests call the API over HTTP against a dedicated `_test` database, and recovery checks simulate worker, SMTP, broker, and Redis outages with a TCP proxy. Both tag their data with a run ID and delete it afterwards. |
 

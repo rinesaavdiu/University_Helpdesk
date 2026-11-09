@@ -2,9 +2,11 @@
 
 **University Helpdesk API** — *Sistem për raportimin e problemeve teknike në universitet*
 
-This document defines the planned HTTP contract. The requirements are in
-[`requirements.md`](requirements.md) and the design is in
-[`design.md`](design.md).
+This document defines the HTTP contract that the Ticket API implements. The
+requirements are in [`requirements.md`](requirements.md) and the design is in
+[`design.md`](design.md). In the Development environment the API also serves
+the OpenAPI description at `/swagger/v1/swagger.json` and the Swagger UI at
+`/swagger`.
 
 ## Conventions
 
@@ -238,7 +240,7 @@ Validation errors (`400`) add an `errors` object keyed by field name:
   "detail": "One or more fields are invalid.",
   "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
   "errors": {
-    "description": ["Description must be between 10 and 2000 characters."]
+    "description": ["The Description field must be between 10 and 2000 characters after trimming."]
   }
 }
 ```

@@ -8,7 +8,39 @@ classroom technology, such as projectors, computers, or network access, and
 technicians track those reports and mark them as resolved. When a ticket is
 resolved, the Notification Worker emails the student.
 
+This repository contains the backend: the Ticket API and the Notification
+Worker. A web frontend for students and technicians is planned but not built
+yet; until then, use the Swagger UI or the Postman collection described below.
+
 The commands below are for Windows PowerShell and run from the repository root.
+
+## Tools and versions
+
+What you need depends on how you run the project:
+
+| Task | Tools |
+| ---- | ----- |
+| Run everything in containers | Docker Engine with Docker Compose v2 |
+| Run the API and worker from source | .NET 10 SDK, plus Docker for the backing services |
+| Deploy to a local Kubernetes cluster | Docker, kind, and kubectl |
+| Run the Postman collection from the command line | Node.js (for `npx newman`) |
+
+These are the versions the project was built and verified with:
+
+| Tool | Version |
+| ---- | ------- |
+| .NET SDK | 10.0.403 (the images use the `10.0-alpine` .NET images) |
+| EF Core command-line tools | `dotnet-ef` 10.0.4, pinned in `dotnet-tools.json` |
+| Docker Engine and Docker Compose | 29.9.3 and v5.7.0, inside WSL 2 (Ubuntu 22.04) on Windows 10 |
+| kind and kubectl | kind v0.33.0 (Kubernetes v1.37.0 node) and kubectl v1.37.2 |
+| Node.js and Newman | Node.js 22.20.0 and Newman 6 |
+
+The services run as these images: `postgres:18.6-alpine`,
+`rabbitmq:4.1-management-alpine`, `redis:8.2-alpine`, `axllent/mailpit:v1.33`,
+and `nginx:1.28-alpine` (the Compose gateway). The main libraries are
+ASP.NET Core 10, EF Core 10.0.4 with Npgsql 10.0.3, RabbitMQ.Client 7.2.2,
+StackExchange.Redis 3.4.31, MailKit 4.18.2, prometheus-net 8.2.1, and xUnit
+2.9.3.
 
 ## Run everything with Docker Compose
 
@@ -91,7 +123,8 @@ commands are the same in PowerShell and in a WSL shell.
 
    ```powershell
    kind create cluster --config deploy/kubernetes/kind-cluster.yaml
-   docker compose build api worker
+   docker build --file backend/UniversityHelpdesk.Api/Dockerfile --tag university-helpdesk-api:local .
+   docker build --file backend/UniversityHelpdesk.NotificationWorker/Dockerfile --tag university-helpdesk-worker:local .
    kind load docker-image university-helpdesk-api:local university-helpdesk-worker:local --name university-helpdesk
    ```
 
@@ -117,7 +150,11 @@ commands are the same in PowerShell and in a WSL shell.
    kubectl -n university-helpdesk get pods
    ```
 
-4. Open the API and Mailpit from your machine:
+   In a Linux or WSL shell, `bash scripts/ci/deploy-kind.sh` runs the
+   `kind load` command and these steps in one go.
+
+4. Open the API and Mailpit from your machine. Each command keeps running, so
+   use a separate terminal for each:
 
    ```powershell
    kubectl -n university-helpdesk port-forward service/api 58090:8080
@@ -207,6 +244,78 @@ the API and the worker run with `dotnet run`. Requires the .NET 10 SDK as well.
 
    Swagger is at `http://localhost:5276/swagger`, and Mailpit at
    `http://localhost:58025`.
+
+## Configuration
+
+Both programs read standard .NET configuration: `appsettings.json`, then user
+secrets (in Development), then environment variables. In an environment
+variable, `__` replaces `:`, so `RabbitMq:Password` becomes
+`RabbitMq__Password`. Docker Compose sets the variables from `.env`, and
+Kubernetes from the `helpdesk-secrets` Secret and the `rabbitmq-settings`
+ConfigMap.
+
+| Setting | Used by | Default in `appsettings.json` | Notes |
+| ------- | ------- | ----------------------------- | ----- |
+| `ConnectionStrings:HelpdeskDatabase` | API | none | Required for every request that uses the database. Without it the API still starts, but those requests fail with an error naming the missing setting. Secret. |
+| `Jwt:SigningKey` | API | none | Required; at least 32 bytes. Secret. |
+| `Jwt:Issuer`, `Jwt:Audience` | API | `UniversityHelpdesk.Api`, `UniversityHelpdesk.Clients` | |
+| `DemoAccounts:Student1Password`, `Student2Password`, `Technician1Password` | API (`seed-demo-users`) | none | Needed only to create the demo accounts. Secret. |
+| `RabbitMq:HostName`, `Port`, `VirtualHost`, `UserName` | API and worker | `127.0.0.1`, `55672`, `helpdesk`, `helpdesk` | Both must point at the same broker. |
+| `RabbitMq:Password` | API and worker | none | Secret. |
+| `RabbitMq:Exchange`, `TicketResolvedQueue` | API and worker | `helpdesk.events`, `helpdesk.ticket-resolved` | Must be identical in both. |
+| `RabbitMq:FailedQueue` | Worker | `helpdesk.ticket-resolved.failed` | |
+| `Redis:Configuration` | API | `127.0.0.1:56379` | Empty disables the category cache. |
+| `Redis:CategoryCacheDuration`, `Redis:Timeout` | API | `00:05:00`, `00:00:01` | |
+| `OutboxPublisher:MaxAttempts`, `FirstRetryDelay`, `MaxRetryDelay` | API | `10`, 5 seconds, 5 minutes | Publishing retries for resolution events. |
+| `Smtp:Host`, `Smtp:Port` | Worker | `127.0.0.1`, `51025` | Mailpit in local development. |
+| `Smtp:FromAddress`, `Smtp:FromName` | Worker | `helpdesk@uni.test`, `University Helpdesk` | |
+| `Delivery:MaxAttempts`, `FirstRetryDelay`, `MaxRetryDelay` | Worker | `5`, 2 seconds, 30 seconds | Email retries before a message goes to the failed queue. |
+| `Health:FilePath` | Worker | empty (off) | Health file for container probes; Compose and Kubernetes set `/tmp/notification-worker.alive`. |
+
+Secrets are never stored in `appsettings.json` or committed: use `.env` for
+Compose, `deploy/kubernetes/infrastructure/secrets.env` for Kubernetes, and
+user secrets or environment variables for `dotnet run`. All three files are
+ignored by Git.
+
+## Database initialization
+
+The API never changes the schema when it starts. Two one-off commands of the
+API program prepare the database instead, and both are safe to run again:
+
+| Command | What it does |
+| ------- | ------------ |
+| `migrate-database` | Applies any pending EF Core migrations. The migrations also insert the six demo categories (Audio, Computer, Projector, Network, Smart Board, Other). |
+| `seed-demo-users` | Creates the missing demo accounts `student1@uni.test`, `student2@uni.test`, and `technician1@uni.test` with the passwords from `DemoAccounts:*`, and leaves existing accounts unchanged. It runs only in the Development environment. |
+
+Each setup runs them before the API starts:
+
+| Setup | How the commands run |
+| ----- | -------------------- |
+| Docker Compose | The `db-init` service runs both on every `docker compose up`; the API replicas wait until it succeeds. |
+| Kubernetes | The `db-init` Job in `deploy/kubernetes/init` runs both; apply the apps only after it has completed. |
+| `dotnet run` | Run `-- migrate-database` and `-- seed-demo-users` yourself, as in the steps above. |
+
+Docker Compose also creates an empty `helpdesk_test` database when the
+PostgreSQL volume is first created, for the integration tests.
+
+## API overview and permissions
+
+All endpoints except login need `Authorization: Bearer <accessToken>` from
+`POST /auth/login`. The full contract, with request and response bodies and
+error codes, is in `docs/api-contract.md`.
+
+| Endpoint | Student | Technician |
+| -------- | ------- | ---------- |
+| `POST /auth/login` | Public | Public |
+| `GET /categories` | Yes | Yes |
+| `POST /tickets` | Yes, owned by the caller | No (`403`) |
+| `GET /tickets`, `GET /tickets/{id}` | Own tickets only; another student's ticket is `404` | All tickets |
+| `PATCH /tickets/{id}`, `DELETE /tickets/{id}` | Own tickets, only while `Open` | No (`403`) |
+| `PATCH /tickets/{id}/status` | No (`403`) | One step forward: `Open → InProgress → Resolved` |
+
+Edits and status changes must send the ticket's current `version`; a stale
+version returns `409`. The health and metrics endpoints are described under
+[Monitoring](#monitoring).
 
 ## How notifications and caching behave
 
@@ -343,6 +452,40 @@ Run it with `--help` to see the options for the user, ticket, and request counts
 It exits with `1` if any request fails. Recorded results are in
 `docs/benchmark-results.md`.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main`, on pull requests, and
+manually from the **Actions** tab (**CI → Run workflow**, or
+`gh workflow run ci.yml --ref main`). It has two jobs:
+
+1. **Build and test** restores and builds the solution in Release and runs
+   `dotnet test`. The test results (`.trx` files) are uploaded as the
+   `test-results` artifact.
+2. **Kubernetes smoke test** builds both images, generates random credentials
+   for the run (masked in the log), creates a kind cluster, and deploys the
+   manifests in the order described above. It then runs
+   `scripts/ci/smoke-test.sh`: a student logs in and creates a ticket, a
+   technician moves it to `InProgress` and `Resolved`, and the resolution email
+   must reach the student in Mailpit. The namespace's resources, events, and
+   container logs are uploaded as the `kubernetes-diagnostics` artifact, with
+   every credential value replaced by `***`.
+
+The same scripts run locally in a Linux or WSL shell with Docker, kind,
+kubectl, `curl`, `jq`, and `openssl`. `new-kind-secrets.sh` refuses to
+overwrite an existing `secrets.env`, so move yours aside first:
+
+```bash
+docker build --file backend/UniversityHelpdesk.Api/Dockerfile --tag university-helpdesk-api:local .
+docker build --file backend/UniversityHelpdesk.NotificationWorker/Dockerfile --tag university-helpdesk-worker:local .
+kind create cluster --config deploy/kubernetes/kind-cluster.yaml --name helpdesk-ci
+bash scripts/ci/new-kind-secrets.sh
+export KIND_CLUSTER=helpdesk-ci
+bash scripts/ci/deploy-kind.sh
+bash scripts/ci/smoke-test.sh
+bash scripts/ci/collect-diagnostics.sh diagnostics
+kind delete cluster --name helpdesk-ci
+```
+
 ## Monitoring
 
 | Path            | Purpose                                                                                 |
@@ -353,7 +496,9 @@ It exits with `1` if any request fails. Recorded results are in
 
 The gateway does not expose `/metrics`, because each replica has its own
 counters. Read them inside the Compose network, for example
-`docker compose exec api wget -qO- http://127.0.0.1:8080/metrics`.
+`docker compose exec api wget -qO- http://127.0.0.1:8080/metrics`. In
+Kubernetes, the API pods carry `prometheus.io/scrape` annotations, and
+`/metrics` is reachable only from inside the cluster.
 
 The API and the worker write JSON logs to the console. Each API request is
 logged once with its route template, status code, duration, and trace ID.
@@ -364,10 +509,11 @@ or ticket descriptions. See `docs/api-contract.md` for the metric names.
 
 | Directory        | Purpose                                                       |
 | ---------------- | ------------------------------------------------------------- |
+| `.github/`       | GitHub Actions workflow                                       |
 | `backend/`       | Source code and Dockerfiles for the API and the Notification Worker |
 | `benchmarks/`    | Load benchmark for the documented performance target          |
 | `database/init/` | Scripts PostgreSQL runs when its Compose volume is created    |
 | `deploy/`        | Configuration for the Compose gateway, and Kubernetes manifests in `deploy/kubernetes/` |
 | `tests/`         | Unit, integration, and recovery tests, and the Postman collection |
 | `docs/`          | Project documentation and requirements                        |
-| `scripts/`       | Helper scripts for development and maintenance                |
+| `scripts/ci/`    | Scripts the CI workflow uses to deploy to kind, run the smoke test, and collect diagnostics |
