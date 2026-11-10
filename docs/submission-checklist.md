@@ -147,13 +147,16 @@ Done before the final package:
 
 **Team actions** (only the group members can do these):
 
-- [ ] Group member names on the title slide of `docs/presentation.md`.
-- [ ] Each member's name, GitHub account, confirmed contributions, and
-      evidence in `docs/sources-and-contributions.md` and on the
-      "Individual contributions" slide. Credit only what each member
-      confirms.
-- [ ] Check that the AI disclosure in `docs/sources-and-contributions.md` and
-      on the "Sources and AI use" slide meets the course guidelines on AI use.
+- [x] Group member names (Rinesa Avdiu and Domenika Zeqiri) on the title
+      slide of `docs/presentation.md`.
+- [x] Each member's name, GitHub account, contributions, and evidence in
+      `docs/sources-and-contributions.md` and on the "Individual
+      contributions" slide, as confirmed by the team on 10 November 2026.
+- [x] The AI disclosure, in the team's wording, in
+      `docs/sources-and-contributions.md` and on the "Sources and AI use"
+      slide.
+- [ ] Add work not visible in Git (reviews, manual checks) to the
+      contribution records, if the team wants it credited.
 - [ ] Every member can explain the code they present (section 14).
 - [ ] Any course material or tutorials the team consulted, in
       `docs/sources-and-contributions.md`.

@@ -22,7 +22,7 @@ A Ticket API, a Notification Worker, and a React web app
 
 Ueb Shërbimet dhe Ueb API-të, project defense
 
-_Group members: to be completed by the team_
+Rinesa Avdiu and Domenika Zeqiri
 
 ---
 
@@ -234,15 +234,13 @@ and 1,000 tickets, on the Compose system.
 
 ## Individual contributions
 
-_Each member presents their own confirmed contribution. To be completed by
-the team, matching `docs/sources-and-contributions.md`. Git records commits
-from two GitHub accounts, `rinesaavdiu` and `domenikka`; a commit's author
-does not show who wrote the change._
+Each member directed, reviewed, and committed their own changes. Commits and
+files are in `docs/sources-and-contributions.md`.
 
 | Member | Contribution | Evidence |
 | ------ | ------------ | -------- |
-| _Name_ | _To be completed_ | _To be completed_ |
-| _Name_ | _To be completed_ | _To be completed_ |
+| **Rinesa Avdiu** (`rinesaavdiu`, 21 commits) | Backend: requirements and API design, JWT and roles, ticket CRUD and status workflow, outbox, RabbitMQ, worker, Redis, monitoring, Compose, integration and recovery tests, benchmark, Kubernetes. Frontend: React scaffold and layout, student list, detail, report, edit and delete, student browser rehearsal, frontend handoff | `ba81ce0` to `06e5a1f`; `e0941b7` to `4f8e37e` |
+| **Domenika Zeqiri** (`domenikka`, 14 commits) | CI with the Kubernetes smoke test; verification records, test cases, HTTPS docs, slides, runbook, packaging. Frontend: sign-in, session and role guards, technician queue and status actions, serving the app through Compose, full browser rehearsal through Mailpit | `f4875fb` to `37d8ee2`; `b53ab9d` to `27bb22d` |
 
 ---
 
@@ -251,13 +249,11 @@ does not show who wrote the change._
 - Libraries, npm packages, images, and references with versions and
   licenses: `docs/sources-and-contributions.md`. All are open source (MIT,
   Apache-2.0, PostgreSQL, and others listed there).
-- **AI use:** our team organized the project into milestones, directed
-  changes as issues came up, and managed the Git history. We used ChatGPT
-  throughout the project to help plan the work, break down the assignment
-  requirements, and troubleshoot. We also used AI coding assistance to
-  generate and revise code, tests, configuration, and documentation, and to
-  run verification checks, including the React frontend and the browser
-  checks. Individual contributions are listed separately.
+- **AI use:** Rinesa Avdiu and Domenika Zeqiri organized the project into
+  milestones, directed the work, and managed the Git history. We used ChatGPT
+  to plan the project, clarify assignment requirements, and troubleshoot. We
+  also used AI tools during implementation, documentation, and verification.
+  The individual contribution records describe each member's role.
 
 ---
 

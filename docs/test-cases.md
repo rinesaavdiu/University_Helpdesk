@@ -114,8 +114,8 @@ checked by `scripts/verify-compose.sh` on every run.
 
 ## Not covered by an automated test
 
-- **The browser flow** (TC-38 to TC-43) was checked with a browser driven by
-  the AI assistant; the frontend has no automated UI tests.
+- **The browser flow** (TC-38 to TC-43) was checked in a browser; the
+  frontend has no automated UI tests.
 
 - **SQL injection.** All queries go through EF Core, which sends values as
   parameters; the one raw query (`OutboxPublisher`) uses `FromSql` with

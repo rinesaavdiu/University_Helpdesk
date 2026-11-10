@@ -7,38 +7,78 @@ the team** must be filled in and confirmed by the group members.
 
 ## AI assistance
 
-Our team organized the project into milestones, directed changes as issues
-came up, and managed the Git history. We used ChatGPT throughout the project
-to help plan the work, break down the assignment requirements, and
-troubleshoot. We also used AI coding assistance to generate and revise code,
-tests, configuration, and documentation, and to run verification checks. This
-includes the React frontend, its Docker build, and the browser checks: the AI
-assistant drove a browser through the demo flow, and the screenshots in
-`docs/screenshots/` were captured during those runs. Individual contributions
-are listed separately.
+Rinesa Avdiu and Domenika Zeqiri organized the project into milestones,
+directed the work, and managed the Git history. We used ChatGPT to plan the
+project, clarify assignment requirements, and troubleshoot. We also used AI
+tools during implementation, documentation, and verification. The individual
+contribution records describe each member's role.
 
 ## Group members and contributions
 
 GitHub links the repository's commits to two accounts (`git log` up to
-`ef61cb1`, 10 November 2026; the commit that adds this table is not counted):
+`27bb22d`, 10 November 2026; the commit that adds this record is not counted):
 
-| GitHub account | Commits | Dates | Commits made |
-| -------------- | ------: | ----- | ------------ |
-| [`rinesaavdiu`](https://github.com/rinesaavdiu) (owner of the repository) | 21 | 7–9 Nov 2026 | From `ba81ce0` (README and folder structure) to `06e5a1f` (benchmark, Kubernetes, deployment docs); then the React frontend's first five commits, from `e0941b7` (scaffold and shared layout) to `4f8e37e` (student screens checked in the browser) |
-| [`domenikka`](https://github.com/domenikka) | 12 | 9–10 Nov 2026 | `f4875fb` (CI workflow) to `37d8ee2` (presentation and demo runbook): CI, documentation, verification results, sources, and the presentation; then `b53ab9d` to `ef61cb1`: frontend sign-in, the technician queue and status actions, serving the frontend through Compose, and the browser verification |
+| Member | GitHub account | Commits | Dates |
+| ------ | -------------- | ------: | ----- |
+| Rinesa Avdiu | [`rinesaavdiu`](https://github.com/rinesaavdiu) (owner of the repository) | 21 | 7–9 Nov 2026 |
+| Domenika Zeqiri | [`domenikka`](https://github.com/domenikka) | 14 | 9–10 Nov 2026 |
 
-Both accounts committed from the same computer, in the same session as the AI
-coding assistant. A commit's author shows who committed a change, not who
-wrote it, so this document does not credit any code or design decision to an
-individual.
-Section 12 of the course requirements asks each member to explain their
-individual contribution at the defense.
+**How this record was built.** The attributions below come from three kinds of
+evidence:
 
-**To be completed by the team** (one row per group member):
+- **Git history** (verifiable in the repository): who committed each change,
+  and the files and diffs it contains. A few commit messages do not describe
+  their diff; for those, the diff was used and the difference is noted.
+- **The team's working record** (not part of the repository): every change was
+  prepared as a separate checkpoint in one working session on one computer.
+  Each checkpoint was assigned to one member, and that member reviewed,
+  staged, committed, and pushed it under their own GitHub account.
+- **The documents in `docs/`**: the frontend handoff, the demo runbook's
+  rehearsal records, the test cases, and the verification results, which
+  record what was checked and when.
 
-| Name | GitHub account | Contributions (for example planning, implementation, review, testing, presentation) | How it can be verified |
-| ---- | -------------- | ----------------------------------------------------------------------------------- | ---------------------- |
-| _To be completed_ | _To be completed_ | _To be completed_ | _To be completed_ |
+"Directed" below means the member set the scope of a change and reviewed and
+committed the result. The team confirmed this division of work on 10 November
+2026; each member explains their own record at the defense, as section 12 of
+the course requirements asks.
+
+### Rinesa Avdiu (`rinesaavdiu`)
+
+Rinesa directed the backend from the first commit to the deployment
+configuration, and then the student half of the React frontend.
+
+| Area | Contribution | Evidence |
+| ---- | ------------ | -------- |
+| Planning and specification | Directed and committed the repository structure, the requirements, the design, and the API contract | `ba81ce0`, `64531b6`; `docs/requirements.md`, `docs/design.md`, `docs/api-contract.md` |
+| Backend: API and database | Directed the API scaffold and Swagger UI, the PostgreSQL and EF Core setup, the schema and seeded categories, JWT sign-in with the Student and Technician roles, Problem Details and validation, ticket creation, listing, reading, editing, and deleting, the category list, and the status workflow | `b788cc2`, `dd095c2`, `613180b`, `a7fb074`, `9bbfb97`, `238b902`, `cedf36a` (its message, "student crud", covers only `POST /tickets` and the ticket service), `af1d000`, `48c7b1c` |
+| Backend: messaging and reliability | Directed the outbox table for pending notifications, publishing to RabbitMQ, the Notification Worker, the Redis category cache, and the health checks and metrics | `c044941`, `cc74f37`, `419539c` |
+| Deployment and testing | Directed the Dockerfiles, Docker Compose with the nginx gateway and database init script, the HTTP integration tests, the recovery checks, the Postman collection, the benchmark, and the Kubernetes manifests with their deployment documentation | `b982f31` (its message begins "git combuild"; the diff packages the services and adds the integration and recovery tests), `06e5a1f`; `deploy/kubernetes/`, `benchmarks/`, `tests/` |
+| Frontend: student screens | Directed the React and TypeScript scaffold with the shared layout, the student ticket list and detail pages, the report form, and editing and deleting open tickets | `e0941b7`, `8d15526`, `d9a33d3`, `ec709fe`; `frontend/src/pages/Student*.tsx`, `ReportIssuePage.tsx`, `EditTicketPage.tsx`, `components/TicketForm.tsx` |
+| Testing and documentation | Directed the student browser rehearsal (report, edit, ownership check with a second student, delete, and the resolved view) and wrote the frontend handoff for the sign-in and technician work | `4f8e37e`; `docs/frontend-handoff.md`, the student section of `docs/demo-runbook.md`, `docs/screenshots/student-01` to `student-08` |
+
+### Domenika Zeqiri (`domenikka`)
+
+Domenika directed the CI pipeline, the verification and defense documents,
+and the technician half of the React frontend through to the verified browser
+demo.
+
+| Area | Contribution | Evidence |
+| ---- | ------------ | -------- |
+| CI and deployment checks | Directed the GitHub Actions workflow: build and tests, image builds, and a Kubernetes smoke test on a temporary kind cluster | `f4875fb`; `.github/workflows/ci.yml`, `scripts/ci/` |
+| Documentation and verification | Directed the installation and API documentation, the recorded test and deployment results, this sources document, the HTTPS section, and the per-case test table | `da59588`, `4bf38b0`, `4804f47`, `7c0b1f8`, `b29c149`; `docs/verification-results.md`, `docs/test-cases.md` |
+| Presentation and submission | Directed the slides, the demo runbook, the packaging and verification scripts, and the submission checklist, and their final update for the React demo | `37d8ee2`, `7ef281e`, `27bb22d`; `docs/presentation.md`, `docs/demo-runbook.md`, `scripts/package-submission.ps1`, `scripts/verify-package.ps1` |
+| Frontend: sign-in and roles | Directed the React sign-in page, the session handling (tab-scoped storage, expiry, sign-out on `401`), and the role guards, replacing the development harness | `b53ab9d` (its message says "verify student workflows in the browser"; the diff adds `frontend/src/auth/session.ts`, `auth/RequireRole.tsx`, `api/authApi.ts`, and the sign-in in `pages/LoginPage.tsx`) |
+| Frontend: technician screens | Directed the technician ticket queue with filter and pagination, and the Start work and Resolve ticket actions, including the `409` reload | `675a677`, `1e02c3c`; `frontend/src/pages/Technician*.tsx` |
+| Frontend integration | Directed serving the React app through Docker Compose: the gateway image, the `/api` routing, the Content Security Policy, the gateway checks, and the CI frontend job | `dfa9d19`; `frontend/Dockerfile`, `deploy/gateway.conf`, `scripts/verify-compose.sh` |
+| Browser verification | Directed the full browser rehearsal from student report to technician resolution and the Mailpit email, the stale-update and wrong-role checks, and the sign-in with the Content Security Policy enforced | `ef61cb1`, `7ef281e`; TC-37 to TC-43 in `docs/test-cases.md`, `docs/screenshots/flow-01` to `flow-09` |
+
+### To be completed by the team
+
+- **Work not visible in Git:** planning with ChatGPT, reviewing each other's
+  changes, and manual checks such as clicking through the demo by hand. Add
+  these to the record of whoever did them; they are not credited above.
+- **Rehearsal:** the timed, spoken run of the presentation and demo is
+  pending. Record who presents which part once it has been done.
 
 ## Libraries
 
@@ -113,9 +153,9 @@ browser; the other packages are build tools.
 - **No third-party code is included** beyond the libraries and images listed
   above; the repository started empty on 7 November 2026 and every file was
   written in the session described under AI assistance. The EF Core migration
-  files were generated by `dotnet-ef` from the model. AI-generated code can
-  still resemble public examples; the multi-stage Dockerfiles and the ASP.NET
-  Core configuration follow the patterns in the official Microsoft
+  files were generated by `dotnet-ef` from the model. The multi-stage
+  Dockerfiles and the ASP.NET Core configuration follow the patterns in the
+  official Microsoft
   documentation, and the frontend's TypeScript and Vite configuration
   (`tsconfig.app.json`, `tsconfig.node.json`, `vite.config.ts`) has the same
   layout as Vite's React and TypeScript template.
