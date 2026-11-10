@@ -18,21 +18,25 @@ The system has two separately deployable components:
   ticket-resolved events from RabbitMQ and sends confirmation emails. During
   local development, emails go to Mailpit, a test SMTP server with a web inbox.
 
-A web frontend for students and technicians is planned but not built yet.
-Until it exists, clients are the Swagger UI, the Postman collection, or any
-HTTP client.
+Students and technicians use the React web frontend in `frontend/`. In Docker
+Compose, an nginx gateway serves the built app and forwards its `/api`
+requests to the two API replicas. The Swagger UI, the Postman collection, or
+any HTTP client can call the API directly. The Kubernetes deployment covers
+the API, the worker, and their services, but not the frontend.
 
 ```mermaid
 flowchart LR
-    client[Student or Technician client]
-    api[Ticket API]
+    client[React app in the browser]
+    gateway[nginx gateway]
+    api[Ticket API, 2 replicas]
     worker[Notification Worker]
     pg[(PostgreSQL)]
     redis[(Redis)]
     mq[[RabbitMQ]]
     mail[Mailpit]
 
-    client -->|HTTP + JWT| api
+    client -->|HTTP| gateway
+    gateway -->|HTTP + JWT| api
     api -->|users, tickets, categories| pg
     api -->|category cache| redis
     api -->|ticket resolved events| mq

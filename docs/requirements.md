@@ -87,8 +87,8 @@ repository: each installation sets its own through configuration
 (`DemoAccounts:*`), and the accounts are created only in the Development
 environment. They must never be reused outside local development.
 
-Students and technicians use the API through the Swagger UI or an HTTP client
-for now; a web frontend is planned but not part of this scope yet.
+Students and technicians use the system through the React web frontend. The
+Swagger UI and any HTTP client can also call the API directly.
 
 ## Main workflows
 
